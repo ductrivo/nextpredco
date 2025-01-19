@@ -30,6 +30,12 @@ function clean {
       -name "*.pyc" \
       -not -path "*env/*" \
       -exec rm {} +
+      
+    # Remove log files
+    LOG_DIR="${THIS_DIR}/logs"
+    if [ -d "$LOG_DIR" ]; then
+        rm -rf "$LOG_DIR"
+    fi
 }
 
 # install core and development Python dependencies into the currently activated venv
@@ -39,6 +45,10 @@ function install:dev {
 
 function install:docs {
     uv sync --group docs
+}
+
+function model {
+    python -m nextpredco.core.model
 }
 
 TIMEFORMAT="Task completed in %3lR"

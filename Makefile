@@ -9,4 +9,6 @@ install-dev:
 
 install-docs:
 	bash run.sh install:docs
-	
+
+model:
+	bash run.sh model
