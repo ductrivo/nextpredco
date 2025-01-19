@@ -30,13 +30,13 @@ function clean {
       -name "*.pyc" \
       -not -path "*env/*" \
       -exec rm {} +
-      
+
     # Remove log files
     LOG_DIR="${THIS_DIR}/logs"
     if [ -d "$LOG_DIR" ]; then
         rm -rf "$LOG_DIR"
     fi
-    
+
     TEST_LOG_DIR="${LOG_DIR}/logs_test"
     if [ -d "$TEST_LOG_DIR" ]; then
         rm -rf "$TEST_LOG_DIR"
@@ -54,6 +54,14 @@ function install:docs {
 
 function model {
     python -m nextpredco.core.model
+}
+
+function pre-commit:run {
+    pre-commit run --all-files
+}
+
+function pre-commit:update {
+    pre-commit autoupdate
 }
 
 TIMEFORMAT="Task completed in %3lR"

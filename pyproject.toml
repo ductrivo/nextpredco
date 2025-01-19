@@ -18,6 +18,7 @@ dev = [
     "pytest-xdist",
     "ruff",
     "pandas-stubs",
+    "pre-commit",
 ]
 
 docs = []
@@ -108,4 +109,3 @@ docstring-code-format = true
 docstring-code-line-length = 20
 skip-magic-trailing-comma = false
 line-ending = "auto"
-
