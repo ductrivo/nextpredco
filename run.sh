@@ -36,6 +36,11 @@ function clean {
     if [ -d "$LOG_DIR" ]; then
         rm -rf "$LOG_DIR"
     fi
+    
+    TEST_LOG_DIR="${LOG_DIR}/logs_test"
+    if [ -d "$TEST_LOG_DIR" ]; then
+        rm -rf "$TEST_LOG_DIR"
+    fi
 }
 
 # install core and development Python dependencies into the currently activated venv
