@@ -35,7 +35,7 @@ console_handler.setFormatter(standard_formatter)
 
 # Create file handlers
 file_handler = logging.FileHandler(
-    filename=DEBUG_LOG_FILE,
+    filename=LOG_FILE,
     mode='a',
     encoding='utf-8',
 )
@@ -44,7 +44,7 @@ file_handler.setFormatter(detailed_formatter)
 
 # Create a timed rotating file handler
 file_debug_handler = TimedRotatingFileHandler(
-    filename=LOG_FILE,
+    filename=DEBUG_LOG_FILE,
     when='W0',
     interval=1,
     backupCount=7,
