@@ -16,24 +16,34 @@ dev = [
     "pytest",
     "pytest-cov",
     "pytest-xdist",
-    "ruff"
+    "ruff",
+    "pandas-stubs",
 ]
 
 docs = []
 
+[tool.mypy]
+disable_error_code = ["import-untyped"]
+
 [tool.ruff]
+
 # Set the maximum line length to 79.
 line-length = 79
 
 [tool.ruff.lint]
-fixable = ["ALL"]
-
-# ignore = [
+ignore = [
+  'W191',  # Indentation contains tabs
+  "I001",  # isort
+  "F841",  # Missing type annotation for self
+  "B007", # Unused variable
+  "W293",  # Blank line contains whitespace
+  "PERF102", # incorrect dict iterator
+  "F401", # Unused import
 #   'B006', # Learn Python yo!
 #   'C408',  # Unnecessary dict/list call
 #   'COM819',  # Trailing commas is da bomb
 #   'E731',  # Do not assign to lambda
-#   'ERA001', 'T201', # comment code, prints are lax during development
+  'ERA001', 'T201', # comment code, prints are lax during development
 #   'G004', # Logging format string should not use f-string
 #   'RET503', # No explicit return None (all the other rules are about removing unnecessary things like this)
 #   'RUF012', # Mutable class attributes should be annotated with typing.ClassVar
@@ -43,7 +53,7 @@ fixable = ["ALL"]
 #   'TRY003',  # Avoid long messages outside of exception class
 #   #'TRY004',  # Use TypeError instead of ValueError
 #   'TRY301',  # Abstract raise garbage
-#   ]
+  ]
 
 
 select = [
@@ -88,11 +98,12 @@ select = [
   #'PLR',  # Pylint refactor (too much/too opinionated)
   ]
 
+fixable = ["ALL"]
 
 
 [tool.ruff.format]
 quote-style = "single"
-indent-style = "tab"
+indent-style = "space"
 docstring-code-format = true
 docstring-code-line-length = 20
 skip-magic-trailing-comma = false
