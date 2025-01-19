@@ -7,7 +7,7 @@ from pathlib import Path
 from nextpredco.core.consts import PROJECT_DIR
 
 # Define the log directory
-LOG_DIR = Path('logs')
+LOG_DIR = Path(os.getenv('NEXTPREDCO_LOG_DIR', PROJECT_DIR / 'logs'))
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Define the log file paths
@@ -35,7 +35,7 @@ console_handler.setFormatter(standard_formatter)
 
 # Create file handlers
 file_handler = logging.FileHandler(
-    DEBUG_LOG_FILE,
+    filename=DEBUG_LOG_FILE,
     mode='a',
     encoding='utf-8',
 )
@@ -44,7 +44,7 @@ file_handler.setFormatter(detailed_formatter)
 
 # Create a timed rotating file handler
 file_debug_handler = TimedRotatingFileHandler(
-    LOG_FILE,
+    filename=LOG_FILE,
     when='W0',
     interval=1,
     backupCount=7,
@@ -55,7 +55,7 @@ file_debug_handler.setFormatter(standard_formatter)
 
 # Create an error file handler
 error_file_handler = logging.FileHandler(
-    ERROR_LOG_FILE,
+    filename=ERROR_LOG_FILE,
     mode='a',
     encoding='utf-8',
 )
