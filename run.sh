@@ -43,6 +43,11 @@ function clean {
     fi
 }
 
+function install:package {
+    uv pip install -e .
+}
+
+
 # install core and development Python dependencies into the currently activated venv
 function install:dev {
     uv sync --group dev

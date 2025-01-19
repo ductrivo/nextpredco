@@ -4,6 +4,9 @@ help:
 clean:
 	bash run.sh clean
 
+install-package:
+	bash run.sh install:package
+
 install-dev:
 	bash run.sh install:dev
 
