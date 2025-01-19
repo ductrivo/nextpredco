@@ -1,5 +1,6 @@
 {
     "cSpell.words": [
+        "autoupdate",
         "casadi",
         "celerybeat",
         "Connor",
@@ -10,6 +11,7 @@
         "flynt",
         "htmlcov",
         "idxs",
+        "imageoptim",
         "ipynb",
         "ipython",
         "isort",
@@ -36,6 +38,7 @@
         "pypa",
         "pypackages",
         "pypirc",
+        "pyproject",
         "pytest",
         "pytype",
         "pyupgrade",
@@ -44,6 +47,7 @@
         "scrapy",
         "sdist",
         "Simulink",
+        "sklearn",
         "Spyder",
         "spyderproject",
         "spyproject",

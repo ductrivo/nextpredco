@@ -56,6 +56,10 @@ function model {
     python -m nextpredco.core.model
 }
 
+function pre-commit:install {
+    pre-commit install
+}
+
 function pre-commit:run {
     pre-commit run --all-files
 }

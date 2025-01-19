@@ -13,7 +13,10 @@ install-docs:
 model:
 	bash run.sh model
 
-pre-commit:
+pre-commit-install:
+	bash run.sh pre-commit:install
+
+pre-commit-run:
 	bash run.sh pre-commit:run
 
 pre-commit-update:
