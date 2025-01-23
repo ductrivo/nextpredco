@@ -14,7 +14,7 @@ def log_dir() -> Generator[Path, None, None]:
     log_dir = PROJECT_DIR / 'logs_test'
 
     yield log_dir
-
-    # Remove folder after the test
-    if log_dir.exists():
-        shutil.rmtree(log_dir)
+    print('Finished')
+    # # Remove folder after the test
+    # if log_dir.exists():
+    #     shutil.rmtree(log_dir)

@@ -1,0 +1,28 @@
+variable,variable_latex,state_space,value,dimensions,description
+k0_ab,K0_ab,q,1.287E+12,h^-1,K0
+k0_bc,K0_bc,q,1.287E+12,h^-1,K0
+k0_ad,K0_ad,q,9043000000,l/mol.h,K0
+r_gas,R_gas,q,0.008314462,kj/mol.K,Universal gas constant
+eA_ab,E_A_ab,q,9758.3,kj/mol,Activation energy for reaction ab
+eA_bc,E_A_bc,q,9758.3,kj/mol,Activation energy for reaction bc
+eA_ad,E_A_ad,q,8560,kj/mol,Activation energy for reaction ad
+hR_ab,H_R_ab,q,4.2,kj/mol A,Reaction enthalpy for ab
+hR_bc,H_R_bc,q,-11,kj/mol B,Reaction enthalpy for bc (Exothermic)
+hR_ad,H_R_ad,q,-41.85,kj/mol A,Reaction enthalpy for ad (Exothermic)
+rho,Rou,q,0.9342,kg/l,Density
+cp,Cp,q,3.01,kj/Kg.K,Specific heat capacity
+cp_k,Cp_k,q,2,kj/kg.k,Coolant heat capacity
+aR,A_R,q,0.215,m^2,Area of reactor wall
+vR,V_R,q,10.01,l,Volume of reactor
+m_k,m_k,q,5,kg,Coolant mass
+t_in,T_in,q,130,Celsius,Temperature of inflow
+k_w,K_w,q,4032,kj/h.m^2.K,Heat transfer coefficient
+cA_0,C_A0,q,5.1,mol/l,Concentration of A in input (average of upper and lower bounds)
+cA,C_A,x,0.8,mol/l,Concentration of reactant A
+cB,C_B,"x, y",0.5,mol/l,Concentration of reactant B
+tR,T_R,x,134.14,C,Temperature inside the reactor
+tK,T_K,x,130,C,Temperature of the cooling jacket
+f,F,u,0,l/h,The feed
+q_dot,Q_dot,u,0,l/h,The heat flow
+alpha,alpha,p,1,,Uncertain value
+beta,beta,p,1,,Uncertain value

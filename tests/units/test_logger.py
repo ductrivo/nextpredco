@@ -19,6 +19,7 @@ LOG_LEVELS = {
 
 def test_logger_file_handlers(log_dir: Path):
     os.environ['NEXTPREDCO_LOG_DIR'] = str(log_dir)
+
     from nextpredco.core.logger import logger
 
     original_messages = {
