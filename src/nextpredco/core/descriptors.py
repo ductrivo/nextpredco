@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 
 from nextpredco.core.consts import SS_VARS_DB, SS_VARS_SECONDARY
@@ -9,6 +10,7 @@ from nextpredco.core.errors import (
     NotAvailableAttributeError,
     ReadOnlyAttributeError,
 )
+from nextpredco.core.logger import logger
 
 
 class ReadOnly:
@@ -19,7 +21,43 @@ class ReadOnly:
         raise ReadOnlyAttributeError(self._name)
 
     def __get__(self, instance, owner):
-        return getattr(instance, f'_{self._name}', None)
+        return getattr(instance._settings, f'{self._name}')
+
+
+class ReadOnlyData:
+    def __set_name__(self, owner, name: str) -> None:
+        self._name = name
+
+    def __set__(self, instance, value) -> None:
+        raise ReadOnlyAttributeError(self._name)
+
+    def __get__(self, instance, owner):
+        return getattr(instance, f'_{self._name}')
+
+
+class ReadOnlyInt(ReadOnly):
+    def __get__(self, instance, owner) -> int:
+        return getattr(instance._settings, f'{self._name}')
+
+
+class ReadOnlyFloat(ReadOnly):
+    def __get__(self, instance, owner) -> float:
+        return getattr(instance._settings, f'{self._name}')
+
+
+class ReadOnlyStr(ReadOnly):
+    def __get__(self, instance, owner) -> str:
+        return getattr(instance._settings, f'{self._name}')
+
+
+class ReadOnlySource(ReadOnly):
+    def __get__(self, instance, owner) -> SourceType:
+        return getattr(instance._settings, f'{self._name}')
+
+
+class ReadOnlyPandas(ReadOnly):
+    def __get__(self, instance, owner) -> pd.DataFrame:
+        return getattr(instance._settings, f'{self._name}')
 
 
 class SystemVariableView:
@@ -35,9 +73,9 @@ class SystemVariableView:
         self._idx_list = idx_list
 
     @property
-    def val(self) -> NDArray[np.int64 | np.float64] | None:
+    def val(self) -> NDArray[np.int64 | np.float64]:
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, self._k, None]
@@ -47,13 +85,15 @@ class SystemVariableView:
     @val.setter
     def val(self, val: NDArray[np.int64 | np.float64]) -> None:
         if len(self._idx_list) == 0:
-            raise EmptyArrayError()
+            if val.size == 0:
+                return
+            logger.warning('Trying to set a value to an empty array.')
         self._arr_full[self._idx_list, self._k, None] = val
 
     @property
-    def prev(self) -> NDArray[np.int64 | np.float64] | None:
+    def prev(self) -> NDArray[np.int64 | np.float64]:
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
 
         k = self._k - 1 if self._k > 0 else 0
 
@@ -63,9 +103,9 @@ class SystemVariableView:
         return self._arr_full[self._idx_list, k, None]
 
     @property
-    def hist(self) -> NDArray[np.int64 | np.float64] | None:
+    def hist(self) -> NDArray[np.int64 | np.float64]:
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, : (self._k + 1)]
@@ -73,14 +113,14 @@ class SystemVariableView:
         return self._arr_full[self._idx_list, : (self._k + 1)]
 
     @property
-    def full(self) -> NDArray[np.int64 | np.float64] | None:
+    def full(self) -> NDArray[np.int64 | np.float64]:
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
         return self._arr_full
 
-    def get_val(self, k: int) -> NDArray[np.int64 | np.float64] | None:
+    def get_val(self, k: int) -> NDArray[np.int64 | np.float64]:
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
         return self._arr_full[self._idx_list, k, None]
 
     def set_val(self, k: int, val: NDArray[np.int64 | np.float64]) -> None:
@@ -96,12 +136,12 @@ class SystemVariableView:
         self,
         k0: int,
         k1: int,
-    ) -> NDArray[np.int64 | np.float64] | None:
+    ) -> NDArray[np.int64 | np.float64]:
         if k0 < 0:
             raise InvalidK0ValueError
 
         if len(self._idx_list) == 0:
-            return None
+            return np.array([])
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, k0 : (k1 + 1)]
@@ -126,18 +166,18 @@ class SystemVariableView:
         self._arr_full[self._idx_list, k0 : (k1 + 1)] = val
 
 
-class VariableSource(ReadOnly):
-    goal: SystemVariableView | ReadOnly = ReadOnly()
-    act: SystemVariableView | ReadOnly = ReadOnly()
-    est: SystemVariableView | ReadOnly = ReadOnly()
-    meas: SystemVariableView | ReadOnly = ReadOnly()
-    filt: SystemVariableView | ReadOnly = ReadOnly()
+class VariableSource(ReadOnlyData):
+    goal: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    act: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    est: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    meas: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    filt: SystemVariableView | ReadOnlyData = ReadOnlyData()
 
-    goal_clock: SystemVariableView | ReadOnly = ReadOnly()
-    act_clock: SystemVariableView | ReadOnly = ReadOnly()
-    est_clock: SystemVariableView | ReadOnly = ReadOnly()
-    meas_clock: SystemVariableView | ReadOnly = ReadOnly()
-    filt_clock: SystemVariableView | ReadOnly = ReadOnly()
+    goal_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    act_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    est_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    meas_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    filt_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
 
     def __init__(
         self,
@@ -169,12 +209,15 @@ class SystemVariable:
         raise AttributeError(error_msg)
 
     def __get__(self, instance, owner) -> VariableSource:
-        self._sources: SourceType = instance._sources
-        self._vars: list[str] = getattr(instance, f'_{self._name}_vars')
+        self.sources: SourceType = instance._settings.sources
+        self._vars: list[str] = getattr(
+            instance._settings,
+            f'{self._name}_vars',
+        )
 
         arr_fulls: dict[str, NDArray[np.int64 | np.float64]] = {}
         idx_lists: dict[str, list[int]] = {}
-        for source in self._sources:
+        for source in self.sources:
             arr_fulls[source], idx_lists[source] = (
                 self._get_arr_fulls_and_idx_lists(
                     instance,
@@ -183,8 +226,8 @@ class SystemVariable:
             )
 
         return VariableSource(
-            instance._k,
-            instance._k_clock,
+            instance._data.k,
+            instance._data.k_clock,
             arr_fulls,
             idx_lists,
         )
@@ -195,17 +238,17 @@ class SystemVariable:
         source: str,
     ) -> tuple[NDArray[np.int64 | np.float64], list[int]]:
         # Extract the variables
-        x_vars: list[str] = instance._x_vars
-        z_vars: list[str] = instance._z_vars
-        upq_vars: list[str] = instance._upq_vars
+        x_vars: list[str] = instance._settings.x_vars
+        z_vars: list[str] = instance._settings.z_vars
+        upq_vars: list[str] = instance._settings.upq_vars
 
         # Extract the full arrays
         if self._name in ['x', *x_vars, *SS_VARS_SECONDARY]:
-            arr_full = getattr(instance, f'_x_{source}_full')
+            arr_full = getattr(instance._data, f'x_{source}_full')
         elif self._name in ['z', *z_vars]:
-            arr_full = getattr(instance, f'_z_{source}_full')
+            arr_full = getattr(instance._data, f'z_{source}_full')
         elif self._name in ['u', 'p', 'q', 'upq', *upq_vars]:
-            arr_full = getattr(instance, f'_upq_{source}_full')
+            arr_full = getattr(instance._data, f'upq_{source}_full')
         else:
             raise NotAvailableAttributeError(self._name)
 
@@ -214,7 +257,7 @@ class SystemVariable:
             idx_list = list(range(arr_full.shape[0]))
 
         elif self._name in ['u', 'p', 'q']:
-            vars_ = getattr(instance, f'_{self._name}_vars')
+            vars_ = getattr(instance._settings, f'{self._name}_vars')
             idx_list = [upq_vars.index(var_) for var_ in vars_]
 
         elif self._name in x_vars:
@@ -224,7 +267,7 @@ class SystemVariable:
             idx_list = [z_vars.index(self._name)]
 
         elif self._name in SS_VARS_SECONDARY:
-            vars_ = getattr(instance, f'_{self._name}_vars')
+            vars_ = getattr(instance._settings, f'{self._name}_vars')
             idx_list = [x_vars.index(var_) for var_ in vars_]
 
         elif self._name in upq_vars:
@@ -233,3 +276,25 @@ class SystemVariable:
             raise NotAvailableAttributeError(self._name)
 
         return arr_full, idx_list
+
+
+class TimeVariable:
+    def __set_name__(self, owner, name: str) -> None:
+        self._name = name
+        self._private_name = f'_{name}'
+
+    def __set__(self, instance, value) -> None:
+        error_msg = 'Please model.t.set_val or model.t.set_hist.'
+        raise AttributeError(error_msg)
+
+    def __get__(self, instance, owner) -> SystemVariableView:
+        if self._name == 't':
+            arr_full = instance._data.t_full
+        elif self._name == 't_clock':
+            arr_full = instance._data.t_clock_full
+
+        return SystemVariableView(
+            k=instance._data.k,
+            arr_full=arr_full,
+            idx_list=[0],
+        )

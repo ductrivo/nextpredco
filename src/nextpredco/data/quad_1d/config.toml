@@ -1,0 +1,43 @@
+[system]
+model.is_continuous = true
+model.is_linear = false
+model.integrator.name = 'idas'
+controller.name = 'mpc'
+controller.optimizer.name = 'ipopt'
+
+[state_space.x]
+cA.value = 0.8
+cB.value = 0.5
+tR.value = 134.14
+tK.value = 130.0
+
+[state_space.z]
+
+[state_space.u]
+f.value = 0.0
+q_dot.value = 0.0
+
+[state_space.p]
+alpha.value = 1
+beta.value = 1
+
+[state_space.q]
+k0_ab.value = 1.287e12  # K0 [h^-1]
+k0_bc.value = 1.287e12  # K0 [h^-1]
+k0_ad.value = 9.043e9   # K0 [l/mol.h]
+rGas.value = 8.3144621e-3  # Universal gas constant
+eA_ab.value = 9758.3  # * r_gas # [kj/mol]
+eA_bc.value = 9758.3  # * r_gas # [kj/mol]
+eA_ad.value = 8560.0   # * r_gas # [kj/mol]
+hR_ab.value = 4.2  # [kj/mol A]
+hR_bc.value = -11.0  # [kj/mol B] Exothermic
+hR_ad.value = -41.85  # [kj/mol A] Exothermic
+rou.value = 0.9342  # Density [kg/l]
+cP.value = 3.01  # Specific Heat capacity [kj/kg.K]
+cP_k.value = 2.0  # Coolant heat capacity [kj/kg.k]
+aR.value = 0.215  # Area of reactor wall [m^2]
+vR.value = 10.01  # Volume of reactor [l]
+mK.value = 5.0  # Coolant mass [kg]
+tIn.value = 130.0  # Temp of inflow [Celsius]
+kW.value = 4032.0  # [kj/h.m^2.K]
+cA0.value = 5.1 # Concentration of A in input Upper bound 5.7 lower bound 4.5 [mol/l]

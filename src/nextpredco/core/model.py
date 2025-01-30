@@ -1,25 +1,115 @@
+import contextlib
+import importlib.util
 import time
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
+from importlib.machinery import ModuleSpec
 from pathlib import Path
+from typing import Any, override
 
+import casadi as ca
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from nextpredco.core import utils
 from nextpredco.core.consts import (
+    CONFIG_FOLDER,
     DATA_DIR,
     SS_VARS_DB,
     SS_VARS_PRIMARY,
     SS_VARS_SECONDARY,
     SS_VARS_SOURCES,
 )
-from nextpredco.core.custom_types import SourceType
-from nextpredco.core.descriptors import ReadOnly, SystemVariable
+from nextpredco.core.custom_types import SourceType, SymVar
+from nextpredco.core.descriptors import (
+    ReadOnlyFloat,
+    ReadOnlyInt,
+    ReadOnlyPandas,
+    ReadOnlySource,
+    SystemVariable,
+    TimeVariable,
+)
 from nextpredco.core.errors import SystemVariableError
+from nextpredco.core.integrator import IDASIntegrator
 from nextpredco.core.logger import logger
+from nextpredco.core.settings.settings import IDASSettings, ModelSettings
+
+try:
+    from rich.pretty import pretty_repr
+except ImportError:
+
+    def pretty_repr(obj: Any) -> Any:  # type: ignore[misc]
+        return obj
+
+
+from collections.abc import Callable
+
+
+@dataclass
+class ModelData:
+    k: int
+    k_clock: int
+    n_max: int
+    n_clock_max: int
+
+    t_full: NDArray
+    t_clock_full: NDArray
+    x_est_full: NDArray
+    z_est_full: NDArray
+    upq_est_full: NDArray
+
+    x_goal_full: NDArray | None = field(default=None)
+    z_goal_full: NDArray | None = field(default=None)
+    upq_goal_full: NDArray | None = field(default=None)
+
+    x_act_full: NDArray | None = field(default=None)
+    z_act_full: NDArray | None = field(default=None)
+    upq_act_full: NDArray | None = field(default=None)
+
+    x_meas_full: NDArray | None = field(default=None)
+    z_meas_full: NDArray | None = field(default=None)
+    upq_meas_full: NDArray | None = field(default=None)
+
+    x_filt_full: NDArray | None = field(default=None)
+    z_filt_full: NDArray | None = field(default=None)
+    upq_filt_full: NDArray | None = field(default=None)
+
+    x_goal_clock_full: NDArray | None = field(default=None)
+    z_goal_clock_full: NDArray | None = field(default=None)
+    upq_goal_clock_full: NDArray | None = field(default=None)
+
+    x_act_clock_full: NDArray | None = field(default=None)
+    z_act_clock_full: NDArray | None = field(default=None)
+    upq_act_clock_full: NDArray | None = field(default=None)
+
+    x_est_clock_full: NDArray | None = field(default=None)
+    z_est_clock_full: NDArray | None = field(default=None)
+    upq_est_clock_full: NDArray | None = field(default=None)
+
+    x_meas_clock_full: NDArray | None = field(default=None)
+    z_meas_clock_full: NDArray | None = field(default=None)
+    upq_meas_clock_full: NDArray | None = field(default=None)
+
+    x_filt_clock_full: NDArray | None = field(default=None)
+    z_filt_clock_full: NDArray | None = field(default=None)
+    upq_filt_clock_full: NDArray | None = field(default=None)
 
 
 class Model:
-    k = ReadOnly()
+    # Settings
+    dt = ReadOnlyFloat()
+    t_max = ReadOnlyFloat()
+
+    k_clock = ReadOnlyInt()
+    dt_clock = ReadOnlyFloat()
+    sources = ReadOnlySource()
+
+    # Data
+    k = ReadOnlyInt()
+    n_clock_max = ReadOnlyInt()
+    n_max = ReadOnlyInt()
+
     x = SystemVariable()
     z = SystemVariable()
     u = SystemVariable()
@@ -29,142 +119,246 @@ class Model:
     m = SystemVariable()
     o = SystemVariable()
     upq = SystemVariable()
+    t = TimeVariable()
+    t_clock = TimeVariable()
 
     def __init__(
         self,
-        model_data_path: Path = DATA_DIR / 'model_cstr.csv',
-        t_max: float = 10,
-        t_clock: float = 1,
-        t_samp: float = 0.1,
-        sources: SourceType = (
-            'goal',
-            'est',
-            'act',
-            'meas',
-            'filt',
-            'meas_clock',
-            'filt_clock',
-        ),
-    ) -> None:
-        self._k: int = 0
-        self._k_clock: int = 0
-
-        # Extract model information and initial values
-        self._model_info = pd.read_csv(model_data_path)
-        self._sys_vars: list[str] = list(self._model_info['variable'])
+        # model_data_path: Path = DATA_DIR / "ex_chen1998.csv",
+        settings: ModelSettings | None = None,
+        integrator_settings: IDASSettings | None = None,
+    ) -> None:  # Extract model information and initial values
+        self._settings = settings
         logger.debug(
-            'Model information extracted, system variables:\n%s',
-            self._sys_vars,
+            'Model settings:\n%s',
+            pretty_repr(self._settings),
         )
 
-        # Extract state space variables
-        for ss_var in SS_VARS_PRIMARY + SS_VARS_SECONDARY:
-            value = self._extract_vars(ss_var)
-            setattr(self, f'_{ss_var}_vars', value)
-        logger.debug('State space variables extracted.')
-
-        self._upq_vars: list[str] = self._u_vars + self._p_vars + self._q_vars  # type: ignore[attr-defined]
-        self._primary_vars = self._get_primary_vars()
-        self._validate_definitions()
-        logger.debug('Model definitions validated.')
-
-        # Extract time information
-        self._n_max = round(t_max / t_samp)
-        self._n_clock_max = round(t_max / t_clock)
-
-        # Extract sources information
-        self._sources = sources
-
-        # Create full arrays for each source
-        created_attrs: list[str] = []
-        for ss_var in SS_VARS_DB:
-            vars_list = getattr(self, f'_{ss_var}_vars')
-            # TODO: May have different initial values for each source
-            init_val = self._extract_init_val(vars_list)
-            vec_length = len(vars_list)
-
-            # Create full arrays for each source
-            for source in sources:
-                n_max = self._n_clock_max if 'clock' in source else self._n_max
-                arr_full = np.zeros((vec_length, n_max))
-                arr_full[:, 0, None] += init_val
-                attr_name = f'_{ss_var}_{source}_full'
-                setattr(self, attr_name, arr_full)
-                created_attrs.append(attr_name)
-
-        logger.debug('Created attributes:\n%s', sorted(created_attrs))
-
-    def _validate_definitions(self):
-        self._check_length(
-            list1=self._primary_vars,
-            list2=self._sys_vars,
-            name1='_primary_vars',
-            name2='_sys_vars',
-        )
-        self._check_subset(
-            ss_vars_subset=SS_VARS_PRIMARY,
-            ss_vars_superset=self._sys_vars,
-            superset_name='system',
-        )
-        self._check_subset(
-            ss_vars_subset=SS_VARS_SECONDARY,
-            ss_vars_superset=self._primary_vars,
-            superset_name='primary',
-        )
-
-    def _check_length(
-        self,
-        list1: list[str],
-        list2: list[str],
-        name1: str,
-        name2: str,
-    ):
-        if len(list1) != len(list2):
-            raise ValueError(  # noqa: TRY003
-                f'The length of {name1} must be equal to'
-                f'the length of {name2}.',
+        self._integrator: IDASIntegrator | None = None
+        if integrator_settings is not None:
+            self._integrator = IDASIntegrator(integrator_settings)
+            logger.debug(
+                'Integrator settings:\n%s',
+                pretty_repr(integrator_settings),
             )
 
-    def _check_subset(
+        self._data = self._create_data()
+        logger.debug(
+            'Created data holder. Result:\n%s',
+            pretty_repr(self._data),
+        )
+
+        self._transient_eqs, self._transient_funcs = self._create_equations()
+        logger.debug('Loaded equations.')
+
+    @staticmethod
+    def _load_equations() -> tuple[
+        Callable[..., SymVar],
+        Callable[..., SymVar],
+    ]:
+        module_path = Path().cwd() / CONFIG_FOLDER / 'equations.py'
+        spec = importlib.util.spec_from_file_location(
+            'dynamic_module',
+            module_path,
+        )
+        if spec is None:
+            msg = f'Cannot load module from {module_path}'
+            raise ImportError(msg)
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        return module.create_f, module.create_g
+
+    def _create_data(self) -> ModelData:
+        # Create data holder
+        data: dict[str, int | NDArray] = {}
+
+        # Extract time information
+        data['k'] = 0
+        data['k_clock'] = 0
+        data['n_max'] = round(self._settings.t_max / self._settings.dt)
+        data['n_clock_max'] = round(
+            self._settings.t_max / self._settings.dt_clock,
+        )
+
+        # Create data holder (full arrays) for each source
+        created_attrs: list[str] = []
+        for ss_var in SS_VARS_DB:
+            vars_list = getattr(self._settings, f'{ss_var}_vars')
+            length = len(vars_list)
+            # TODO: May have different initial values for each source
+
+            if length > 0:
+                init_val = np.array(
+                    [[self._settings.info[key] for key in vars_list]],
+                ).T
+            else:
+                init_val = np.zeros((length, 1))
+
+            # Create data holder (full arrays) for each source
+            for source in self.sources:
+                n_max = (
+                    data['n_clock_max'] if 'clock' in source else data['n_max']
+                )
+                arr_full = np.zeros((init_val.shape[0], n_max + 1))
+
+                arr_full[:, 0, None] += init_val
+                attr_name = f'_{ss_var}_{source}_full'
+
+                data[attr_name[1:]] = arr_full
+                created_attrs.append(attr_name)
+
+        # Create data holder (full arrays) for time variables
+        data['t_full'] = np.zeros((1, data['n_max'] + 1))
+        data['t_clock_full'] = np.zeros((1, data['n_clock_max'] + 1))
+        return ModelData(**data)  # type: ignore[arg-type]
+
+    def _create_upq_dict(
         self,
-        ss_vars_subset: list[str],
-        ss_vars_superset: list[str],
-        superset_name: str,
-    ):
-        # ss_var: state space variable
-        for ss_var in ss_vars_subset:
-            var_vars = getattr(self, f'_{ss_var}_vars')
-            if not set(var_vars).issubset(set(ss_vars_superset)):
-                raise SystemVariableError(ss_var, superset_name)
+        upq: NDArray | SymVar,
+    ) -> dict[str, NDArray | SymVar]:
+        # TODO: Review the type hints
+        upq_dict = {}
 
-    def _get_primary_vars(self) -> list[str]:
-        primary_vars = []
-        for var_ in SS_VARS_PRIMARY:
-            primary_vars.extend(getattr(self, f'_{var_}_vars'))
+        for var_ in self._settings.upq_vars:
+            idx = self._settings.upq_vars.index(var_)
+            upq_dict[var_] = upq[idx, 0]
 
-        return primary_vars
+        return upq_dict
 
-    def _extract_vars(self, name: str) -> list[str]:
-        return self._model_info[
-            self._model_info['state_space'].str.contains(name)
-        ]['variable'].tolist()
+    def _create_equations(
+        self,
+    ) -> tuple[dict[str, SymVar], dict[str, ca.Function]]:
+        # Create symbolic variables
+        x = SymVar.sym('x', self.n('x'))
+        z = SymVar.sym('z', self.n('z'))
+        upq = SymVar.sym('upq', self.n('upq'))
 
-    def _extract_init_val(self, vars_list: list[str]) -> NDArray[np.float64]:
-        value_vec = []
-        for var in vars_list:
-            value = self._model_info.loc[
-                self._model_info['variable'] == var,
-                'value',
-            ].values[0]
+        # Create dictionary with all symbolic variables
+        all_vars: dict[str, SymVar] = {}
+        for var_ in self._settings.x_vars:
+            all_vars[var_] = x[self._settings.x_vars.index(var_), 0]
 
-            value_vec.append(value)
+        for var_ in self._settings.z_vars:
+            all_vars[var_] = z[self._settings.z_vars.index(var_), 0]
 
-        return np.array([value_vec]).T
+        for var_ in self._settings.upq_vars:
+            all_vars[var_] = upq[self._settings.upq_vars.index(var_), 0]
+
+        # Load equations from equations.py
+        create_f, create_g = self._load_equations()
+        f = create_f(**all_vars)
+        f_func = ca.Function('f', [x, z, upq], [f])
+
+        transient_eqs = {
+            'x': x,
+            'z': z,
+            'p': upq,
+            'ode': f,
+        }
+
+        transient_funcs = {
+            'f': f_func,
+        }
+
+        if self.n('z') > 0:
+            g = create_g(**all_vars)
+            g_func = ca.Function('g', [x, z, upq], [g])
+            transient_eqs['alg'] = g
+            transient_funcs['f'] = g_func
+
+        return transient_eqs, transient_funcs
+        # print(f"f  = {type(f)}")
+
+    # @abstractmethod
+    # @staticmethod
+    # def create_f(**kwargs) -> SymVar:
+    #     pass
+
+    # # @abstractmethod
+    # @staticmethod
+    # def create_g(**kwargs) -> SymVar:
+    #     pass
+
+    def create_integrator(
+        self,
+        t0: float,
+        t_grid: NDArray[np.float64] | list[float],
+        opts: dict[str, float | str],
+    ) -> ca.Function:
+        # Choose Idas by default
+        return ca.integrator(
+            'integrator',
+            'idas',
+            self._transient_eqs,
+            t0,
+            t_grid,
+            opts,
+        )
+
+    def _update_k(self) -> None:
+        self._data.k += 1
+
+        # TODO: try other ways to update time
+        # Try case to work with t_clock
+        self.t.val[0, 0] = self._data.k * self._settings.dt
 
     def n(self, ss_var: str) -> int:
-        return len(getattr(self, f'_{ss_var}_vars'))
+        return len(getattr(self._settings, f'{ss_var}_vars'))
+
+    def make_step(self) -> None:
+        # x, z, _, _ = self.compute_xz(
+        #     t0=self.k,
+        #     t_grid=[self.k, self.k + 1],
+        #     opts={'abstol': 1e-6, 'reltol': 1e-6},
+        #     x0=self.x.est.val,
+        #     z0=self.z.est.val,
+        #     upq=self.upq.est.val,
+        # )
+        x, z, _, _ = self._integrator.integrate(
+            equations=self._transient_eqs,
+            x0=self.x.est.val,
+            z0=self.z.est.val,
+            t0=self.k,
+            t_grid=[self.k, self.k + 1],
+            p0=self.upq.est.val,
+        )
+        self._update_k()
+        self.x.est.val = x
+        self.z.est.val = z
+
+    def compute_xz(
+        self,
+        t0: float,
+        t_grid: NDArray[np.float64] | list[float],
+        opts: dict[str, float | str],
+        x0: NDArray,
+        z0: NDArray,
+        upq: NDArray,
+    ):
+        integrator = self.create_integrator(t0=t0, t_grid=t_grid, opts=opts)
+        sol = integrator(x0=x0, z0=z0, p=upq)
+        x_arr = sol['xf'].full()
+        z_arr = sol['zf'].full()
+
+        # Get final state vector
+        x = x_arr[:, -1, None]
+        z = z_arr[:, -1, None]
+
+        return x, z, x_arr, z_arr
 
 
 if __name__ == '__main__':
-    model = Model()
-    print(model.x.act.val)
+    # model = Model()
+
+    # print(f"\nInitial condition\n\tmodel.x.est.val = {model.x.est.val.T}")
+    # model.compute_xz(
+    #     t0=0,
+    #     t_grid=[0, 1, 2],
+    #     opts={"abstol": 1e-6, "reltol": 1e-6},
+    #     x0=model.x.est.val,
+    #     z0=model.z.est.val,
+    #     upq=model.upq.est.val,
+    # )
+    pass

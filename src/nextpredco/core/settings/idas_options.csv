@@ -1,0 +1,31 @@
+parameter,type,cpp_type,value,description
+abstol,float,OT_DOUBLE,,Absolute tolerence for the IVP solution
+abstolv,list[float],OT_DOUBLEVECTOR,,Absolute tolerarance for each component
+calc_ic,bool,OT_BOOL,,Use IDACalcIC to get consistent initial conditions.
+calc_icB,bool,OT_BOOL,,Use IDACalcIC to get consistent initial conditions for backwards system [default: equal to calc_ic].
+cj_scaling,bool,OT_BOOL,,IDAS scaling on cj for the user-defined linear solver module
+constraints,list[int],OT_INTVECTOR,,"Constrain the solution y=[x,z]. 0 (default): no constraint on yi"
+disable_internal_warnings,bool,OT_BOOL,,Disable SUNDIALS internal warning messages
+first_time,float,OT_DOUBLE,,First requested time as a fraction of the time interval
+fsens_err_con,bool,OT_BOOL,,include the forward sensitivities in all error controls
+init_xdot,list[float],OT_DOUBLEVECTOR,,Initial values for the state derivatives
+interpolation_type,str,OT_STRING,,Type of interpolation for the adjoint sensitivities
+linear_solver,str,OT_STRING,,A custom linear solver creator function [default: qr]
+linear_solver_options,dict,OT_DICT,,Options to be passed to the linear solver
+max_krylov,int,OT_INT,,Maximum Krylov subspace size
+max_multistep_order,int,OT_INT,,Maximum order for the (variable-order) multistep method
+max_num_steps,int,OT_INT,,Maximum number of integrator steps
+max_order,float,OT_DOUBLE,,Maximum order
+max_step_size,float,OT_DOUBLE,,Maximim step size
+newton_scheme,str,OT_STRING,,Linear solver scheme in the Newton method: DIRECT|gmres|bcgstab|tfqmr
+nonlin_conv_coeff,float,OT_DOUBLE,,Coefficient in the nonlinear convergence test
+quad_err_con,bool,OT_BOOL,,Should the quadratures affect the step size control
+reltol,float,OT_DOUBLE,,Relative tolerence for the IVP solution
+scale_abstol,bool,OT_BOOL,,Scale absolute tolerance by nominal value
+second_order_correction,bool,OT_BOOL,,Second order correction in the augmented system Jacobian [true]
+sensitivity_method,str,OT_STRING,,Sensitivity method: SIMULTANEOUS|staggered
+step0,float,OT_DOUBLE,,initial step size [default: 0/estimated]
+steps_per_checkpoint,int,OT_INT,,Number of steps between two consecutive checkpoints
+stop_at_end,bool,OT_BOOL,,[DEPRECATED] Stop the integrator at the end of the interval
+suppress_algebraic,bool,OT_BOOL,,Suppress algebraic variables in the error testing
+use_preconditioner,bool,OT_BOOL,,Precondition the iterative solver [default: true]

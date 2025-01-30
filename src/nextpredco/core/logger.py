@@ -1,13 +1,23 @@
+import contextlib
 import logging
 import logging.config
 import os
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-from nextpredco.core.consts import PROJECT_DIR
+# from nextpredco.core.consts import PROJECT_DIR
+
+with contextlib.suppress(ImportError):
+    from rich import print  # noqa: A004
+    from rich.logging import RichHandler
+
+    rich_handler_imported = True
+    from rich.pretty import install
+
+    install()
 
 # Define the log directory
-LOG_DIR = Path(os.getenv('NEXTPREDCO_LOG_DIR', PROJECT_DIR / 'logs'))
+LOG_DIR = Path.cwd() / 'logs'
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # Define the log file paths
@@ -24,14 +34,18 @@ standard_formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
 detailed_formatter = logging.Formatter(
-    '%(asctime)s - %(name)s - %(levelname)s - %(module)s : '
-    '%(lineno)d - %(message)s',
+    '%(asctime)s - %(name)s - %(levelname)s - %(module)s'
+    ' - [in %(pathname)s:%(lineno)d]: %(message)s',
 )
 
 # Create handlers
-console_handler = logging.StreamHandler()
+console_handler: RichHandler | logging.StreamHandler
+if rich_handler_imported:
+    console_handler = RichHandler(show_time=False, rich_tracebacks=True)
+else:
+    console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(standard_formatter)
+console_handler.setFormatter(detailed_formatter)
 
 # Create file handlers
 file_handler = logging.FileHandler(
@@ -70,11 +84,3 @@ logger.addHandler(error_file_handler)
 
 # Avoid log message propagation to the root logger
 logger.propagate = False
-
-# Example usage
-if __name__ == '__main__':
-    logger.debug('This is a debug message')
-    logger.info('This is an info message')
-    logger.warning('This is a warning message')
-    logger.error('This is an error message')
-    logger.critical('This is a critical message')

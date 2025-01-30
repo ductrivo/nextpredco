@@ -45,6 +45,7 @@ line-length = 79
 
 [tool.ruff.lint]
 ignore = [
+  'COM812',
   'W191',    # Indentation contains tabs
   "I001",    # isort
   "F841",    # Missing type annotation for self
