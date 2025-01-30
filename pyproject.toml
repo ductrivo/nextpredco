@@ -29,12 +29,13 @@ dev = [
   "bpython",
   "pytest-cov",
   "npt-promote",
+  "rich",
 ]
 
 docs = []
 
 [tool.mypy]
-disable_error_code = ["import-untyped"]
+disable_error_code = ["import-untyped", 'union-attr']
 plugins = ['numpy.typing.mypy_plugin', 'npt_promote']
 
 
@@ -66,7 +67,8 @@ ignore = [
   #   'SIM300', # Yoda is wiser than you!
   #   'TRY003',  # Avoid long messages outside of exception class
   #   #'TRY004',  # Use TypeError instead of ValueError
-  #   'TRY301',  # Abstract raise garbage
+  #   'TRY301',  # Abstract raise garbage,
+  'S603', # subprocess-without-shell-equals-true
 ]
 
 
