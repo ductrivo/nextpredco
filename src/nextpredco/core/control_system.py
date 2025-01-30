@@ -8,12 +8,15 @@ from nextpredco.core import utils
 from nextpredco.core.consts import CONFIG_FOLDER, SETTING_FOLDER
 from nextpredco.core.controller import MPC, PID, Controller
 from nextpredco.core.custom_types import SourceType
+from nextpredco.core.integrator import IDAS
 from nextpredco.core.model import Model
 from nextpredco.core.observer import Observer
+from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.plant import Plant
 from nextpredco.core.settings.settings import (
     ControllerSettings,
     IDASSettings,
+    IPOPTSettings,
     KalmanSettings,
     ModelSettings,
     MPCSettings,
@@ -21,129 +24,13 @@ from nextpredco.core.settings.settings import (
     PIDSettings,
     PlantSettings,
     SettingsFactory,
+    extract_settings_from_file,
 )
-
-
-def _cast_value(value: str, value_type: str):
-    # if isinstance(value, str):
-    #     value = value.lower()
-    value_type = value_type.lower()
-    if value_type == 'str':
-        return str(value)
-    if value_type == 'bool':
-        return value.lower() == 'true'
-    if value_type == 'int':
-        return int(value)
-    if value_type == 'float':
-        return float(value)
-    if 'list' in value_type:
-        value = (
-            value.replace('[', '')
-            .replace(']', '')
-            .replace("'", '')
-            .replace('"', '')
-            .replace(' ', '')
-        )
-        values = value.split(',')
-        value_out: list[str | bool | int | float] = []
-
-        if 'str' in value_type:
-            value_out = [str(v) for v in values]
-        elif 'bool' in value_type:
-            value_out = [v.lower() == 'true' for v in values]
-        elif 'int' in value_type:
-            value_out = [int(v) for v in values]
-        elif 'float' in value_type:
-            value_out = [float(v) for v in values]
-
-        if len(value_out) == 1 and value_out[0] == '':
-            return []
-        return value_out
-    msg = f'Unsupported type: {value_type}'
-    raise ValueError(msg)
-
-
-def _df_to_nested_dict(df: pd.DataFrame):
-    nested_dict: dict = {}
-    for _, row in df.iterrows():
-        if row['value'] != '':
-            keys = row['parameter'].split('.')
-            value_type = row['type']
-
-            value = _cast_value(row['value'], value_type)
-
-            d = nested_dict
-            for key in keys[:-1]:
-                if key not in d:
-                    d[key] = {}
-                d = d[key]
-            d[keys[-1]] = value
-
-    return nested_dict
-
-
-def extract_settings():
-    df = pd.read_csv(
-        Path.cwd() / SETTING_FOLDER / 'settings.csv',
-        na_filter=False,
-    )
-    df_dict: dict = _df_to_nested_dict(df)
-    utils.pretty_print_dict(df_dict)
-
-    all_settings = {}
-
-    # Integrator settings in model
-    if 'integrator' in df_dict['model']:
-        all_settings['model_integrator'] = SettingsFactory().create(
-            **df_dict['model']['integrator'],
-        )
-        df_dict['model'].pop('integrator')
-    else:
-        all_settings['model_integrator'] = None
-
-    all_settings['model'] = SettingsFactory().create(**df_dict['model'])
-
-    if 'controller' in df_dict:
-        if 'optimizer' in df_dict['controller']:
-            all_settings['controller_optimizer'] = SettingsFactory().create(
-                **df_dict['controller']['optimizer'],
-            )
-            df_dict['controller'].pop('optimizer')
-        else:
-            all_settings['controller_optimizer'] = None
-
-        all_settings['controller'] = SettingsFactory().create(
-            **df_dict['controller'],
-        )
-    else:
-        all_settings['controller'] = None
-
-    if 'observer' in df_dict:
-        if 'optimizer' in df_dict['observer']:
-            all_settings['observer_optimizer'] = SettingsFactory().create(
-                **df_dict['observer']['optimizer'],
-            )
-            df_dict['observer'].pop('optimizer')
-        else:
-            all_settings['observer_optimizer'] = None
-
-        all_settings['observer'] = SettingsFactory().create(
-            **df_dict['observer'],
-        )
-    else:
-        all_settings['observer'] = None
-
-    if 'plant' in df_dict:
-        pass
-    else:
-        all_settings['plant'] = None
-
-    return all_settings
 
 
 class ControlSystem:
     def __init__(self):
-        self.model: Model | None = None
+        self.model = None
         self.controller = None
         self.observer = None
         self.plant = None
@@ -159,23 +46,37 @@ class ControlSystemBuilder:
     def set_model(
         self,
         settings: ModelSettings,
-        integrator: IDASSettings,
+        integrator_settings: IDASSettings | None,
     ) -> 'ControlSystemBuilder':
+        # Create integrator if settings are provided
+        if integrator_settings is not None:
+            integrator = IDAS(integrator_settings)
+        else:
+            integrator = None
+
+        # Create model
         self.system.model = Model(settings, integrator)
         return self
 
     def set_controller(
         self,
         settings: PIDSettings | MPCSettings,
-        optimizer_settings: IDASSettings | None = None,
+        optimizer_settings: IPOPTSettings | None = None,
     ) -> 'ControlSystemBuilder':
+        # Create optimizer if settings are provided
+        if optimizer_settings is not None:
+            input(optimizer_settings)
+            optimizer = IPOPT(optimizer_settings)
+
+        # Create controller based on the setting type
         if isinstance(settings, PIDSettings):
             self.system.controller = PID(settings)
+
         elif isinstance(settings, MPCSettings):
             self.system.controller = MPC(
-                settings,
-                self.system.model,
-                optimizer_settings,
+                settings=settings,
+                model=self.system.model,
+                optimizer=optimizer,
             )
         return self
 
@@ -197,7 +98,7 @@ class Director:
         self.builder = builder
 
     def construct(self):
-        settings = extract_settings()
+        settings = extract_settings_from_file()
         utils.print(settings)
         self.builder.set_model(settings['model'], settings['model_integrator'])
 

@@ -2,15 +2,16 @@ from abc import ABC, abstractmethod
 from typing import override
 
 from nextpredco.core.descriptors import ReadOnlyStr
+from nextpredco.core.settings.settings import IPOPTSettings
 
 
 class Optimizer(ABC):
-    name = ReadOnlyStr()
+    @property
+    def settings(self) -> IPOPTSettings:
+        return self._settings
 
-    def __init__(self, name: str, nlp: str, opts: dict):
-        self._name = name
-        self._nlp = nlp
-        self._opts = opts
+    def __init__(self, settings: IPOPTSettings):
+        self._settings = settings
 
     @abstractmethod
     def solve(self):
@@ -18,17 +19,8 @@ class Optimizer(ABC):
 
 
 class IPOPT(Optimizer):
-    def __init__(self, name: str, nlp: str, opts: dict):
-        super().__init__(name, nlp, opts)
-
-    @override
-    def solve(self):
-        pass
-
-
-class PSO(Optimizer):
-    def __init__(self, name: str, nlp: str, opts: dict):
-        super().__init__(name, nlp, opts)
+    def __init__(self, settings: IPOPTSettings):
+        super().__init__(settings)
 
     @override
     def solve(self):

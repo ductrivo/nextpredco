@@ -72,6 +72,7 @@ class OptimizerSettings:
 @dataclass
 class IPOPTSettings(OptimizerSettings):
     name: str = field(default='ipopt')
+    opts: dict[str, str | float | int] = field(default_factory=dict)
 
 
 @dataclass(kw_only=True)
@@ -171,22 +172,17 @@ def create_settings_template(project_dir: Path | None = None):
 
     # Create the model settings DataFrame
     settings_dfs.append(
-        _create_settings_dataframe(
-            ModelSettings(),
-            prefix='model',
-        ),
+        _create_settings_df(ModelSettings(), prefix='model'),
     )
 
     # Create the MODEL.INFO DataFrame
-    settings_dfs.append(
-        _create_model_info_dataframe(configs),
-    )
+    settings_dfs.append(_create_model_info_df(configs))
 
     # Create the INTEGRATOR settings DataFrame
     if configs['system']['model']['is_continuous']:
         integrator_name = configs['system']['model']['integrator']['name']
         settings_dfs.append(
-            _create_settings_dataframe(
+            _create_settings_df(
                 SettingsFactory.create(name=integrator_name),
                 prefix='model.integrator',
             ),
@@ -195,7 +191,7 @@ def create_settings_template(project_dir: Path | None = None):
     # Create the CONTROLLER settings DataFrame
     name = configs['system']['controller']['name']
     settings_dfs.append(
-        _create_settings_dataframe(
+        _create_settings_df(
             SettingsFactory.create(name=name),
             prefix='controller',
         ),
@@ -203,7 +199,7 @@ def create_settings_template(project_dir: Path | None = None):
 
     # Create the OPTIMIZER settings DataFrame
     settings_dfs.append(
-        _create_settings_dataframe(
+        _create_settings_df(
             SettingsFactory.create(
                 name=configs['system']['controller']['optimizer']['name'],
             ),
@@ -240,7 +236,7 @@ def create_settings_template(project_dir: Path | None = None):
     logger.debug('Settings file created successfully at %s.', df_path)
 
 
-def _create_model_info_dataframe(
+def _create_model_info_df(
     configs: dict[str, dict[str, dict[str, dict[str, float]]]],
 ) -> pd.DataFrame:
     df: dict[str, list] = {
@@ -294,7 +290,7 @@ def _create_model_info_dataframe(
     return pd.DataFrame(df)
 
 
-def _create_settings_dataframe(
+def _create_settings_df(
     settings: ModelSettings | IDASSettings | MPCSettings | OptimizerSettings,
     prefix='',
 ) -> pd.DataFrame:
@@ -307,12 +303,11 @@ def _create_settings_dataframe(
     for field_ in fields(settings):
         if field_.name == 'opts':
             # Get options from file
-            df_opts = get_settings_from_file(settings.name)
+            df_opts = _get_settings_from_file(settings.name)
             df_opts = df_opts[['parameter', 'type', 'value']]
             df_opts.loc[:, 'parameter'] = df_opts['parameter'].apply(
                 lambda x: f'{prefix}.opts.{x}',
             )
-
         elif (
             field_.name not in ['info']
             and '_types' not in field_.name
@@ -354,6 +349,76 @@ def _create_settings_dataframe(
     return pd.concat([df, df_opts], ignore_index=True)
 
 
+def extract_settings_from_file(
+    file_name: str = 'settings_template.csv',
+) -> dict:
+    # Read the settings file
+    df = pd.read_csv(
+        Path.cwd() / SETTING_FOLDER / file_name,
+        na_filter=False,
+    )
+    input(df)
+
+    # Convert the DataFrame to a nested dictionary
+    # TODO: add type hints
+    df_dict = _df_to_nested_dict(df)
+
+    logger.debug(df_dict)
+    input('Press Enter to continue...')
+    all_ = {}
+
+    # Get INTEGRATOR settings in model
+    if 'integrator' in df_dict['model']:
+        all_['model_integrator'] = SettingsFactory().create(
+            **df_dict['model']['integrator'],
+        )
+        df_dict['model'].pop('integrator')
+    else:
+        all_['model_integrator'] = None
+
+    # Get MODEL settings
+    all_['model'] = SettingsFactory().create(**df_dict['model'])
+
+    # Get CONTROLLER and OPTIMIZER settings
+    if 'controller' in df_dict:
+        if 'optimizer' in df_dict['controller']:
+            all_['controller_optimizer'] = SettingsFactory().create(
+                **df_dict['controller']['optimizer'],
+            )
+            df_dict['controller'].pop('optimizer')
+        else:
+            all_['controller_optimizer'] = None
+
+        # Get CONTROLLER settings
+        all_['controller'] = SettingsFactory().create(**df_dict['controller'])
+    else:
+        all_['controller'] = None
+
+    # Get OBSERVER and OPTIMIZER settings
+    if 'observer' in df_dict:
+        # Get OPTIMIZER settings
+        if 'optimizer' in df_dict['observer']:
+            all_['observer_optimizer'] = SettingsFactory().create(
+                **df_dict['observer']['optimizer'],
+            )
+            df_dict['observer'].pop('optimizer')
+        else:
+            all_['observer_optimizer'] = None
+
+        # Get OBSERVER settings
+        all_['observer'] = SettingsFactory().create(**df_dict['observer'])
+    else:
+        all_['observer'] = None
+
+    # Get PLANT settings
+    if 'plant' in df_dict:
+        pass
+    else:
+        all_['plant'] = None
+
+    return all_
+
+
 def _validate_definitions(
     first_vars: dict[str, list[str]],
     second_vars: dict[str, list[str]],
@@ -376,6 +441,63 @@ def _validate_definitions(
             raise SystemVariableError(ss_var, 'physical variables')
 
 
-def get_settings_from_file(name: str) -> pd.DataFrame:
+def _get_settings_from_file(name: str) -> pd.DataFrame:
     setting_file = Path(__file__).parent / f'{name}_options.csv'
     return pd.read_csv(setting_file, na_filter=False)
+
+
+def _cast_value(value: str, value_type: str):
+    # if isinstance(value, str):
+    #     value = value.lower()
+    value_type = value_type.lower()
+    if value_type == 'str':
+        return str(value)
+    if value_type == 'bool':
+        return value.lower() == 'true'
+    if value_type == 'int':
+        return int(value)
+    if value_type == 'float':
+        return float(value)
+    if 'list' in value_type:
+        value = (
+            value.replace('[', '')
+            .replace(']', '')
+            .replace("'", '')
+            .replace('"', '')
+            .replace(' ', '')
+        )
+        values = value.split(',')
+        value_out: list[str | bool | int | float] = []
+
+        if 'str' in value_type:
+            value_out = [str(v) for v in values]
+        elif 'bool' in value_type:
+            value_out = [v.lower() == 'true' for v in values]
+        elif 'int' in value_type:
+            value_out = [int(v) for v in values]
+        elif 'float' in value_type:
+            value_out = [float(v) for v in values]
+
+        if len(value_out) == 1 and value_out[0] == '':
+            return []
+        return value_out
+
+    msg = f'Unsupported type: {value_type}'
+    raise ValueError(msg)
+
+
+def _df_to_nested_dict(df: pd.DataFrame) -> dict:
+    nested_dict: dict = {}
+    for _, row in df.iterrows():
+        if row['value'] != '':
+            keys = row['parameter'].split('.', 3)
+            value_type = row['type']
+            value = _cast_value(row['value'], value_type)
+
+            d = nested_dict
+            for key in keys[:-1]:
+                if key not in d:
+                    d[key] = {}
+                d = d[key]
+            d[keys[-1]] = value
+    return nested_dict

@@ -31,7 +31,7 @@ from nextpredco.core.descriptors import (
     TimeVariable,
 )
 from nextpredco.core.errors import SystemVariableError
-from nextpredco.core.integrator import IDASIntegrator
+from nextpredco.core.integrator import IDAS
 from nextpredco.core.logger import logger
 from nextpredco.core.settings.settings import IDASSettings, ModelSettings
 
@@ -126,21 +126,14 @@ class Model:
         self,
         # model_data_path: Path = DATA_DIR / "ex_chen1998.csv",
         settings: ModelSettings | None = None,
-        integrator_settings: IDASSettings | None = None,
+        integrator: IDAS | None = None,
     ) -> None:  # Extract model information and initial values
         self._settings = settings
         logger.debug(
             'Model settings:\n%s',
             pretty_repr(self._settings),
         )
-
-        self._integrator: IDASIntegrator | None = None
-        if integrator_settings is not None:
-            self._integrator = IDASIntegrator(integrator_settings)
-            logger.debug(
-                'Integrator settings:\n%s',
-                pretty_repr(integrator_settings),
-            )
+        self._integrator = integrator
 
         self._data = self._create_data()
         logger.debug(

@@ -22,7 +22,7 @@ class Integrator(ABC):
         pass
 
 
-class IDASIntegrator(Integrator):
+class IDAS(Integrator):
     def __init__(self, settings: IDASSettings):
         self.opts = settings.opts
 
