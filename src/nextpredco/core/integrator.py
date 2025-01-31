@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from rich.pretty import pprint
 
 from nextpredco.core.custom_types import SymVar
 from nextpredco.core.settings.settings import IDASSettings
@@ -14,7 +15,6 @@ class Integrator(ABC):
         self,
         equations: dict[str, SymVar],
         x0: NDArray,
-        t0: float,
         t_grid=ArrayLike,
         z0: NDArray | None = None,
         p0: NDArray | None = None,
@@ -30,16 +30,16 @@ class IDAS(Integrator):
         self,
         equations: dict[str, SymVar],
         x0: NDArray,
-        t0: float,
         t_grid=ArrayLike,
         z0: NDArray | None = None,
         p0: NDArray | None = None,
     ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        # TODO: Consider avoid recompiling the integrator every time
         integrator = ca.integrator(
             'integrator',
             'idas',
             equations,
-            t0,
+            t_grid[0],
             t_grid,
             self.opts,
         )

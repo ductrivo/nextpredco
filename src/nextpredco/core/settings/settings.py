@@ -357,14 +357,14 @@ def extract_settings_from_file(
         Path.cwd() / SETTING_FOLDER / file_name,
         na_filter=False,
     )
-    input(df)
+    # input(df)
 
     # Convert the DataFrame to a nested dictionary
     # TODO: add type hints
     df_dict = _df_to_nested_dict(df)
 
-    logger.debug(df_dict)
-    input('Press Enter to continue...')
+    # logger.debug(df_dict)
+    # input('Press Enter to continue...')
     all_ = {}
 
     # Get INTEGRATOR settings in model

@@ -11,6 +11,7 @@ import casadi as ca
 import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
+from rich.pretty import pretty_repr
 
 from nextpredco.core import utils
 from nextpredco.core.consts import (
@@ -106,7 +107,6 @@ class Model:
     sources = ReadOnlySource()
 
     # Data
-    k = ReadOnlyInt()
     n_clock_max = ReadOnlyInt()
     n_max = ReadOnlyInt()
 
@@ -121,6 +121,10 @@ class Model:
     upq = SystemVariable()
     t = TimeVariable()
     t_clock = TimeVariable()
+
+    @property
+    def k(self) -> int:
+        return self._data.k
 
     def __init__(
         self,
@@ -224,9 +228,9 @@ class Model:
         self,
     ) -> tuple[dict[str, SymVar], dict[str, ca.Function]]:
         # Create symbolic variables
-        x = SymVar.sym('x', self.n('x'))
-        z = SymVar.sym('z', self.n('z'))
-        upq = SymVar.sym('upq', self.n('upq'))
+        x = SymVar.sym('__x', self.n('x'))
+        z = SymVar.sym('__z', self.n('z'))
+        upq = SymVar.sym('__upq', self.n('upq'))
 
         # Create dictionary with all symbolic variables
         all_vars: dict[str, SymVar] = {}
@@ -242,7 +246,7 @@ class Model:
         # Load equations from equations.py
         create_f, create_g = self._load_equations()
         f = create_f(**all_vars)
-        f_func = ca.Function('f', [x, z, upq], [f])
+        f_func = ca.Function('private_f', [x, z, upq], [f])
 
         transient_eqs = {
             'x': x,
@@ -257,7 +261,7 @@ class Model:
 
         if self.n('z') > 0:
             g = create_g(**all_vars)
-            g_func = ca.Function('g', [x, z, upq], [g])
+            g_func = ca.Function('private_g', [x, z, upq], [g])
             transient_eqs['alg'] = g
             transient_funcs['f'] = g_func
 
@@ -290,34 +294,37 @@ class Model:
             opts,
         )
 
-    def _update_k(self) -> None:
+    def _update_k_and_t(self) -> None:
         self._data.k += 1
 
         # TODO: try other ways to update time
         # Try case to work with t_clock
-        self.t.val[0, 0] = self._data.k * self._settings.dt
+        self.t.set_val(k=self._data.k, val=self._data.k * self._settings.dt)
 
     def n(self, ss_var: str) -> int:
         return len(getattr(self._settings, f'{ss_var}_vars'))
 
-    def make_step(self) -> None:
-        # x, z, _, _ = self.compute_xz(
-        #     t0=self.k,
-        #     t_grid=[self.k, self.k + 1],
-        #     opts={'abstol': 1e-6, 'reltol': 1e-6},
-        #     x0=self.x.est.val,
-        #     z0=self.z.est.val,
-        #     upq=self.upq.est.val,
-        # )
+    def make_step(
+        self,
+        x: NDArray | None = None,
+        u: NDArray | None = None,
+        p: NDArray | None = None,
+        q: NDArray | None = None,
+    ) -> None:
+        self._update_k_and_t()
+
+        self.u.est.val = u if u is not None else self.u.est.prev
+        self.p.est.val = p if p is not None else self.p.est.prev
+        self.q.est.val = q if q is not None else self.q.est.prev
+
         x, z, _, _ = self._integrator.integrate(
             equations=self._transient_eqs,
-            x0=self.x.est.val,
-            z0=self.z.est.val,
-            t0=self.k,
-            t_grid=[self.k, self.k + 1],
+            x0=self.x.est.prev,
+            z0=self.z.est.prev,
+            t_grid=self.t.get_hist(self.k - 1, self.k)[0, :],
             p0=self.upq.est.val,
         )
-        self._update_k()
+
         self.x.est.val = x
         self.z.est.val = z
 

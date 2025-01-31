@@ -30,6 +30,7 @@ dev = [
   "pytest-cov",
   "npt-promote",
   "rich",
+  "ipykernel",
 ]
 
 docs = []
@@ -42,7 +43,7 @@ plugins = ['numpy.typing.mypy_plugin', 'npt_promote']
 [tool.ruff]
 # Set the maximum line length to 79.
 line-length = 79
-
+exclude = ["scripts/try_dompc/CSTR.ipynb"]
 [tool.ruff.lint]
 ignore = [
   'COM812',

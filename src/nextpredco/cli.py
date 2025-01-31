@@ -60,6 +60,7 @@ def menu_main():
     menu = [
         'Initialize the project',
         'Create settings file',
+        'Compare simulation data',
         'Test',
     ]
 
@@ -67,13 +68,19 @@ def menu_main():
 
     if choice == 'Initialize the project':
         menu_init_project()
+
     elif choice == 'Create settings file':
         create_settings_template()
+
+    elif choice == 'Compare simulation data':
+        tasks.compare_with_do_mpc()
+
     elif choice == 'Test':
         builder = ControlSystemBuilder()
         director = Director(builder)
         system = director.construct()
         system.model.make_step()
+
     elif choice == EXIT_KEY:
         return
 

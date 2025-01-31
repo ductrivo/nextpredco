@@ -71,8 +71,8 @@ class MPC(Controller):
         super().__init__(settings, model, optimizer)
 
         self._n_pred = settings.n_pred
-        logger.debug(optimizer.settings)
-        input('Press Enter to continue...')
+        # logger.debug(optimizer.settings)
+        # input('Press Enter to continue...')
 
     @override
     def make_step(self):

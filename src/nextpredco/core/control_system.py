@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import override
 
 import pandas as pd
+from numpy.typing import NDArray
 
 from nextpredco.core import utils
 from nextpredco.core.consts import CONFIG_FOLDER, SETTING_FOLDER
@@ -30,13 +31,20 @@ from nextpredco.core.settings.settings import (
 
 class ControlSystem:
     def __init__(self):
-        self.model = None
+        self.model: Model | None = None  # type: ignore[annotation-unchecked]
         self.controller = None
         self.observer = None
         self.plant = None
 
-    def simulate(self):
-        pass
+    def simulate(
+        self, u_arr: NDArray, p_arr: NDArray, q_arr: NDArray | None = None
+    ):
+        for k in range(u_arr.shape[1]):
+            self.model.make_step(
+                u=u_arr[:, k, None],
+                p=p_arr[:, k, None],
+                # q=q_arr[:, k],
+            )
 
 
 class ControlSystemBuilder:
@@ -65,7 +73,7 @@ class ControlSystemBuilder:
     ) -> 'ControlSystemBuilder':
         # Create optimizer if settings are provided
         if optimizer_settings is not None:
-            input(optimizer_settings)
+            # input(optimizer_settings)
             optimizer = IPOPT(optimizer_settings)
 
         # Create controller based on the setting type
@@ -97,7 +105,7 @@ class Director:
     def __init__(self, builder: ControlSystemBuilder):
         self.builder = builder
 
-    def construct(self):
+    def construct(self) -> ControlSystem:
         settings = extract_settings_from_file()
         utils.print(settings)
         self.builder.set_model(settings['model'], settings['model_integrator'])
@@ -116,7 +124,7 @@ class Director:
         return self.builder.build()
 
 
-if __name__ == '__main__':
+def construct_control_system() -> ControlSystem:
     builder = ControlSystemBuilder()
     director = Director(builder)
-    system = director.construct()
+    return director.construct()

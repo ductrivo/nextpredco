@@ -64,7 +64,7 @@ class SystemVariableView:
     def __init__(
         self,
         k: int,
-        arr_full: NDArray[np.int64 | np.float64],
+        arr_full: NDArray,
         idx_list: list[int],
     ) -> None:
         super().__init__()
@@ -73,7 +73,7 @@ class SystemVariableView:
         self._idx_list = idx_list
 
     @property
-    def val(self) -> NDArray[np.int64 | np.float64]:
+    def val(self) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
 
@@ -83,7 +83,7 @@ class SystemVariableView:
         return self._arr_full[self._idx_list, self._k, None]
 
     @val.setter
-    def val(self, val: NDArray[np.int64 | np.float64]) -> None:
+    def val(self, val: NDArray) -> None:
         if len(self._idx_list) == 0:
             if val.size == 0:
                 return
@@ -91,7 +91,7 @@ class SystemVariableView:
         self._arr_full[self._idx_list, self._k, None] = val
 
     @property
-    def prev(self) -> NDArray[np.int64 | np.float64]:
+    def prev(self) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
 
@@ -103,7 +103,7 @@ class SystemVariableView:
         return self._arr_full[self._idx_list, k, None]
 
     @property
-    def hist(self) -> NDArray[np.int64 | np.float64]:
+    def hist(self) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
 
@@ -113,17 +113,17 @@ class SystemVariableView:
         return self._arr_full[self._idx_list, : (self._k + 1)]
 
     @property
-    def full(self) -> NDArray[np.int64 | np.float64]:
+    def full(self) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
         return self._arr_full
 
-    def get_val(self, k: int) -> NDArray[np.int64 | np.float64]:
+    def get_val(self, k: int) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
         return self._arr_full[self._idx_list, k, None]
 
-    def set_val(self, k: int, val: NDArray[np.int64 | np.float64]) -> None:
+    def set_val(self, k: int, val: NDArray | float) -> None:
         if len(self._idx_list) == 0:
             raise EmptyArrayError()
 
@@ -136,7 +136,7 @@ class SystemVariableView:
         self,
         k0: int,
         k1: int,
-    ) -> NDArray[np.int64 | np.float64]:
+    ) -> NDArray:
         if k0 < 0:
             raise InvalidK0ValueError
 
@@ -152,7 +152,7 @@ class SystemVariableView:
         self,
         k0: int,
         k1: int,
-        val: NDArray[np.int64 | np.float64],
+        val: NDArray,
     ) -> None:
         if k0 < 0:
             raise InvalidK0ValueError
@@ -183,7 +183,7 @@ class VariableSource(ReadOnlyData):
         self,
         k: int,
         k_clock: int,
-        arr_fulls: dict[str, NDArray[np.int64 | np.float64]],
+        arr_fulls: dict[str, NDArray],
         idx_lists: dict[str, list[int]],
     ) -> None:
         for source, arr_full in arr_fulls.items():
@@ -215,7 +215,7 @@ class SystemVariable:
             f'{self._name}_vars',
         )
 
-        arr_fulls: dict[str, NDArray[np.int64 | np.float64]] = {}
+        arr_fulls: dict[str, NDArray] = {}
         idx_lists: dict[str, list[int]] = {}
         for source in self.sources:
             arr_fulls[source], idx_lists[source] = (
@@ -236,7 +236,7 @@ class SystemVariable:
         self,
         instance,
         source: str,
-    ) -> tuple[NDArray[np.int64 | np.float64], list[int]]:
+    ) -> tuple[NDArray, list[int]]:
         # Extract the variables
         x_vars: list[str] = instance._settings.x_vars
         z_vars: list[str] = instance._settings.z_vars
