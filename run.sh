@@ -42,10 +42,6 @@ function clean {
         rm -rf "$TEST_LOG_DIR"
     fi
 
-    TEST_LOG_DIR="${THIS_DIR}/control"
-    if [ -d "$TEST_LOG_DIR" ]; then
-        rm -rf "$TEST_LOG_DIR"
-    fi
 }
 
 function install:package {
