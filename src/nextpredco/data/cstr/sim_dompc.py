@@ -6,7 +6,6 @@ import casadi as ca
 
 # Import do_mpc package:
 import do_mpc  # type: ignore [import-not-found]
-import matplotlib.pyplot as plt
 import numpy as np
 
 rel_do_mpc_path = os.path.join('..', '..', '..')  # noqa: PTH118

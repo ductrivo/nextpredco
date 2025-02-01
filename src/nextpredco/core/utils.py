@@ -29,20 +29,6 @@ def list_to_str(input_: list) -> str:
 
 def print_dict(input_: dict):
     print(dict_to_str(input_))
-    # if len(in_dict) == 0:
-    #     return ""
-
-    # key_ls = list(map(str, in_dict.keys()))
-
-    # max_length = len(max(key_ls, key=len))
-
-    # out_str = ""
-
-    # for key, value in in_dict.items():
-    #     out_str += f"\t{key:{max_length}}:\t{value}\n"
-
-    # out_str = out_str[:-1]
-    # return out_str
 
 
 def pretty_print_dict(data: dict):

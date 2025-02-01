@@ -1,40 +1,28 @@
-import contextlib
 import importlib.util
-import time
-from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from importlib.machinery import ModuleSpec
 from pathlib import Path
-from typing import Any, override
+from typing import Any
 
 import casadi as ca
 import numpy as np
-import pandas as pd
 from numpy.typing import NDArray
 from rich.pretty import pretty_repr
 
-from nextpredco.core import utils
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
-    DATA_DIR,
     SS_VARS_DB,
-    SS_VARS_PRIMARY,
-    SS_VARS_SECONDARY,
-    SS_VARS_SOURCES,
 )
-from nextpredco.core.custom_types import SourceType, SymVar
+from nextpredco.core.custom_types import SymVar
 from nextpredco.core.descriptors import (
     ReadOnlyFloat,
     ReadOnlyInt,
-    ReadOnlyPandas,
     ReadOnlySource,
     SystemVariable,
     TimeVariable,
 )
-from nextpredco.core.errors import SystemVariableError
 from nextpredco.core.integrator import IDAS
 from nextpredco.core.logger import logger
-from nextpredco.core.settings.settings import IDASSettings, ModelSettings
+from nextpredco.core.settings.settings import ModelSettings
 
 try:
     from rich.pretty import pretty_repr
@@ -122,10 +110,6 @@ class Model:
     t = TimeVariable()
     t_clock = TimeVariable()
 
-    @property
-    def k(self) -> int:
-        return self._data.k
-
     def __init__(
         self,
         # model_data_path: Path = DATA_DIR / "ex_chen1998.csv",
@@ -148,24 +132,9 @@ class Model:
         self._transient_eqs, self._transient_funcs = self._create_equations()
         logger.debug('Loaded equations.')
 
-    @staticmethod
-    def _load_equations() -> tuple[
-        Callable[..., SymVar],
-        Callable[..., SymVar],
-    ]:
-        module_path = Path().cwd() / CONFIG_FOLDER / 'equations.py'
-        spec = importlib.util.spec_from_file_location(
-            'dynamic_module',
-            module_path,
-        )
-        if spec is None:
-            msg = f'Cannot load module from {module_path}'
-            raise ImportError(msg)
-
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-
-        return module.create_f, module.create_g
+    @property
+    def k(self) -> int:
+        return self._data.k
 
     def _create_data(self) -> ModelData:
         # Create data holder
@@ -210,6 +179,25 @@ class Model:
         data['t_full'] = np.zeros((1, data['n_max'] + 1))
         data['t_clock_full'] = np.zeros((1, data['n_clock_max'] + 1))
         return ModelData(**data)  # type: ignore[arg-type]
+
+    @staticmethod
+    def _load_equations() -> tuple[
+        Callable[..., SymVar],
+        Callable[..., SymVar],
+    ]:
+        module_path = Path().cwd() / CONFIG_FOLDER / 'equations.py'
+        spec = importlib.util.spec_from_file_location(
+            'dynamic_module',
+            module_path,
+        )
+        if spec is None:
+            msg = f'Cannot load module from {module_path}'
+            raise ImportError(msg)
+
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        return module.create_f, module.create_g
 
     def _create_upq_dict(
         self,
@@ -266,33 +254,6 @@ class Model:
             transient_funcs['f'] = g_func
 
         return transient_eqs, transient_funcs
-        # print(f"f  = {type(f)}")
-
-    # @abstractmethod
-    # @staticmethod
-    # def create_f(**kwargs) -> SymVar:
-    #     pass
-
-    # # @abstractmethod
-    # @staticmethod
-    # def create_g(**kwargs) -> SymVar:
-    #     pass
-
-    def create_integrator(
-        self,
-        t0: float,
-        t_grid: NDArray[np.float64] | list[float],
-        opts: dict[str, float | str],
-    ) -> ca.Function:
-        # Choose Idas by default
-        return ca.integrator(
-            'integrator',
-            'idas',
-            self._transient_eqs,
-            t0,
-            t_grid,
-            opts,
-        )
 
     def _update_k_and_t(self) -> None:
         self._data.k += 1
@@ -330,35 +291,20 @@ class Model:
 
     def compute_xz(
         self,
-        t0: float,
-        t_grid: NDArray[np.float64] | list[float],
-        opts: dict[str, float | str],
         x0: NDArray,
         z0: NDArray,
         upq: NDArray,
-    ):
-        integrator = self.create_integrator(t0=t0, t_grid=t_grid, opts=opts)
-        sol = integrator(x0=x0, z0=z0, p=upq)
-        x_arr = sol['xf'].full()
-        z_arr = sol['zf'].full()
-
-        # Get final state vector
-        x = x_arr[:, -1, None]
-        z = z_arr[:, -1, None]
-
+        t_grid: NDArray,
+    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        x, z, x_arr, z_arr = self._integrator.integrate(
+            equations=self._transient_eqs,
+            x0=x0,
+            z0=z0,
+            p0=upq,
+            t_grid=t_grid,
+        )
         return x, z, x_arr, z_arr
 
 
 if __name__ == '__main__':
-    # model = Model()
-
-    # print(f"\nInitial condition\n\tmodel.x.est.val = {model.x.est.val.T}")
-    # model.compute_xz(
-    #     t0=0,
-    #     t_grid=[0, 1, 2],
-    #     opts={"abstol": 1e-6, "reltol": 1e-6},
-    #     x0=model.x.est.val,
-    #     z0=model.z.est.val,
-    #     upq=model.upq.est.val,
-    # )
     pass

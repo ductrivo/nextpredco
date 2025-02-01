@@ -1,9 +1,7 @@
 from abc import ABC, abstractmethod
 
 import casadi as ca
-import numpy as np
 from numpy.typing import ArrayLike, NDArray
-from rich.pretty import pprint
 
 from nextpredco.core.custom_types import SymVar
 from nextpredco.core.settings.settings import IDASSettings

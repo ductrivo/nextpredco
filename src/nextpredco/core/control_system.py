@@ -1,30 +1,18 @@
-import importlib.util
-from pathlib import Path
-from typing import override
-
-import pandas as pd
 from numpy.typing import NDArray
 
 from nextpredco.core import utils
-from nextpredco.core.consts import CONFIG_FOLDER, SETTING_FOLDER
-from nextpredco.core.controller import MPC, PID, Controller
-from nextpredco.core.custom_types import SourceType
+from nextpredco.core.controller import MPC, PID
 from nextpredco.core.integrator import IDAS
 from nextpredco.core.model import Model
-from nextpredco.core.observer import Observer
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.plant import Plant
 from nextpredco.core.settings.settings import (
-    ControllerSettings,
     IDASSettings,
     IPOPTSettings,
     KalmanSettings,
     ModelSettings,
     MPCSettings,
-    ObserverSettings,
     PIDSettings,
-    PlantSettings,
-    SettingsFactory,
     extract_settings_from_file,
 )
 
@@ -43,7 +31,6 @@ class ControlSystem:
             self.model.make_step(
                 u=u_arr[:, k, None],
                 p=p_arr[:, k, None],
-                # q=q_arr[:, k],
             )
 
 
@@ -73,7 +60,6 @@ class ControlSystemBuilder:
     ) -> 'ControlSystemBuilder':
         # Create optimizer if settings are provided
         if optimizer_settings is not None:
-            # input(optimizer_settings)
             optimizer = IPOPT(optimizer_settings)
 
         # Create controller based on the setting type
@@ -89,8 +75,6 @@ class ControlSystemBuilder:
         return self
 
     def set_observer(self, settings: KalmanSettings) -> 'ControlSystemBuilder':
-        # if isinstance(settings, KalmanSettings):
-        #     self.system.observer = Observer(settings)
         return self
 
     def set_plant(self, plant: Plant) -> 'ControlSystemBuilder':

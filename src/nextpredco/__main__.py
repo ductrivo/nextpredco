@@ -1,10 +1,6 @@
 import argparse
 import contextlib
-import os
 import sys
-from pathlib import Path
-
-import numpy as np
 
 from nextpredco.cli import menu_main
 from nextpredco.core.tasks import (
@@ -77,7 +73,7 @@ def main():
 if __name__ == '__main__':
     with contextlib.suppress(ImportError):
         from rich import print  # noqa: A004
-        from rich.pretty import install, pprint
+        from rich.pretty import install
 
         install()
     main()

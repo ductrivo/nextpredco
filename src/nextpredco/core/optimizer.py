@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import override
 
-from nextpredco.core.descriptors import ReadOnlyStr
 from nextpredco.core.settings.settings import IPOPTSettings
 
 

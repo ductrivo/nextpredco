@@ -11,6 +11,7 @@ def plot_transient(
     model: Model,
     kf: int = -1,
     ss_vars: str = 'yup',
+    plot_vars: list[str] | str = 'yup',
 ) -> None:
     kf_: int = model.k if kf == -1 else kf
     t0 = model.t.get_val(0)[0, 0]
@@ -18,10 +19,7 @@ def plot_transient(
 
     # Compute the number of axes
     # TODO Remove duplicated physical vars
-    n_ax: int = 0
-    for ss_var in SS_VARS_ORDER:
-        if ss_var in ss_vars:
-            n_ax += model.n(ss_var)
+    n_ax = len(plot_vars)
 
     fig: Figure
     ax: list[Axes]
@@ -29,8 +27,9 @@ def plot_transient(
 
     ax = [ax_] if n_ax == 1 else ax_
 
-    t = model.t.full[0, :]
-    x = model.x.est.full[0, :]
+    t = model.t.get_hist(0, model.k).T
+    x = model.x.est.get_hist(0, model.k).T
+
     ax[0].plot(t, x, label='x_est')
     ax[0].set_xlabel('Time [s]')
     ax[0].set_ylabel('x')

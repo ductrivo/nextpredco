@@ -3,13 +3,11 @@ from typing import override
 
 from numpy.typing import NDArray
 
-from nextpredco.core.descriptors import ReadOnlyFloat, ReadOnlyInt
-from nextpredco.core.logger import logger
+from nextpredco.core.descriptors import ReadOnlyInt
 from nextpredco.core.model import Model
-from nextpredco.core.optimizer import IPOPT, Optimizer
+from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings.settings import (
     ControllerSettings,
-    IDASSettings,
     MPCSettings,
     PIDSettings,
 )
@@ -71,8 +69,6 @@ class MPC(Controller):
         super().__init__(settings, model, optimizer)
 
         self._n_pred = settings.n_pred
-        # logger.debug(optimizer.settings)
-        # input('Press Enter to continue...')
 
     @override
     def make_step(self):

@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import numpy as np
-
 from nextpredco.core import utils
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
@@ -25,7 +23,6 @@ def simulate_transient():
 def init_dir(work_dir: Path, example_project: str):
     try:
         config_dir = work_dir / CONFIG_FOLDER
-        # config_dir.mkdir(parents=True)
         utils.copy_example_data(
             example_data=example_project,
             destination=config_dir,

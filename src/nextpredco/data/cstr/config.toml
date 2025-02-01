@@ -1,6 +1,7 @@
 [system]
 model.is_continuous = true
 model.is_linear = false
+model.t_max = 2.0
 model.integrator.name = 'idas'
 controller.name = 'mpc'
 controller.optimizer.name = 'ipopt'

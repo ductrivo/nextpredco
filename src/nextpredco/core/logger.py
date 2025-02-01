@@ -1,14 +1,12 @@
 import contextlib
 import logging
 import logging.config
-import os
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
 # from nextpredco.core.consts import PROJECT_DIR
 
 with contextlib.suppress(ImportError):
-    from rich import print  # noqa: A004
     from rich.logging import RichHandler
 
     rich_handler_imported = True

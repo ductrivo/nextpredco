@@ -1,5 +1,3 @@
-import contextlib
-import os
 import subprocess
 from pathlib import Path
 
@@ -141,21 +139,6 @@ def check_confirmation(back_func):
         back_func()
     elif confirmation == EXIT_STR:
         exit()
-
-
-# def confirm_menu():
-#     menu = [
-#         'Yes',
-#     ]
-#     choice = get_choice(menu=menu, title='Are you sure?')
-
-#     if choice == 'Yes':
-#         return True
-#     if choice == BACK_STR:
-
-#         return None
-#     if choice == EXIT_STR:
-#         exit()
 
 
 def is_valid_dir_name(dir_name: str) -> bool:

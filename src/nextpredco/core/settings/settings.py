@@ -53,9 +53,6 @@ class ModelSettings:
     o_vars: list[str] = field(default_factory=list)
     y_vars: list[str] = field(default_factory=list)
     upq_vars: list[str] = field(default_factory=list)
-    # model_info_path: Path = field(
-    #     default=Path.cwd() / 'settings' / 'model_info.csv',
-    # )
 
 
 @dataclass(kw_only=True)
@@ -86,23 +83,17 @@ class PIDSettings(ControllerSettings):
 class MPCSettings(ControllerSettings):
     name: str = field(default='mpc')
     n_pred: int = field(default=1)
-    # optimizer: Optimizer | None = field(default=None)
 
 
 @dataclass(kw_only=True)
 class IntegratorSettings:
     name: str = field(default='integrator')
-    # n_pred: int = field(default=1)
-    # optimizer: Optimizer | None = field(default=None)
 
 
 @dataclass(kw_only=True)
 class IDASSettings(IntegratorSettings):
     name: str = field(default='idas')
     opts: dict[str, str | float | int] = field(default_factory=dict)
-    # _opts_types: dict[str, str] = field(default_factory=dict)
-    # n_pred: int = field(default=1)
-    # optimizer: Optimizer | None = field(default=None)
 
 
 @dataclass
@@ -357,14 +348,11 @@ def extract_settings_from_file(
         Path.cwd() / SETTING_FOLDER / file_name,
         na_filter=False,
     )
-    # input(df)
 
     # Convert the DataFrame to a nested dictionary
     # TODO: add type hints
     df_dict = _df_to_nested_dict(df)
 
-    # logger.debug(df_dict)
-    # input('Press Enter to continue...')
     all_ = {}
 
     # Get INTEGRATOR settings in model
@@ -447,8 +435,6 @@ def _get_settings_from_file(name: str) -> pd.DataFrame:
 
 
 def _cast_value(value: str, value_type: str):
-    # if isinstance(value, str):
-    #     value = value.lower()
     value_type = value_type.lower()
     if value_type == 'str':
         return str(value)
