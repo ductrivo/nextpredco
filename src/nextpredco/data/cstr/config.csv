@@ -1,0 +1,7 @@
+parameter,type,value,description
+model.is_continuous,bool,TRUE,
+model.is_linear,bool,FALSE,
+model.t_max,float,2,
+model.integrator.name,str,idas,
+controller.name,str,mpc,
+controller.optimizer.name,str,ipopt,

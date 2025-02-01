@@ -4,6 +4,10 @@ import logging.config
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
+import numpy as np
+
+np.set_printoptions(precision=3, suppress=True)
+
 # from nextpredco.core.consts import PROJECT_DIR
 
 with contextlib.suppress(ImportError):

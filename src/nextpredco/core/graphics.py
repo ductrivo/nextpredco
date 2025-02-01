@@ -1,3 +1,4 @@
+import matplotlib as mpl
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -29,7 +30,7 @@ def plot_transient(
 
     t = model.t.get_hist(0, model.k).T
     x = model.get_var('c_a').est.get_hist(0, model.k).T
-    input(x)
+
     ax[0].plot(t, x, label='x_est')
     ax[0].set_xlabel('Time [s]')
     ax[0].set_ylabel('x')

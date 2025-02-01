@@ -4,13 +4,7 @@ version = "0.0.0"
 description = "The NEXT PREDictive Control and Optimization framework"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = [
-  "numpy==2.2",
-  "casadi",
-  "pandas",
-  "matplotlib",
-  "pyside6==6.8.1.1",
-]
+dependencies = ["numpy==2.2", "casadi", "pandas", "pyside6", "matplotlib"]
 
 # uv configuration
 [tool.uv]
@@ -30,7 +24,7 @@ dev = [
   "pytest-cov",
   "npt-promote",
   "rich",
-  "ipykernel",
+  # "ipykernel",
 ]
 
 docs = []

@@ -230,6 +230,9 @@ class Model:
         for var_ in self._settings.upq_vars:
             all_vars[var_] = upq[self._settings.upq_vars.index(var_), 0]
 
+        for var_ in self._settings.const_vars:
+            all_vars[var_] = self._settings.info[var_]
+
         # Load equations from equations.py
         create_f, create_g = self._load_equations()
         f = create_f(**all_vars)

@@ -1,5 +1,4 @@
 import itertools
-import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from types import UnionType
@@ -53,17 +52,60 @@ class ModelSettings:
     o_vars: list[str] = field(default_factory=list)
     y_vars: list[str] = field(default_factory=list)
     upq_vars: list[str] = field(default_factory=list)
+    const_vars: list[str] = field(default_factory=list)
+
+    descriptions: dict[str, str] = field(
+        default_factory=lambda: {
+            'is_continuous': (
+                'True if the model is continuous, '
+                'False if the model is discrete.'
+            ),
+            'is_linear': (
+                'True if the model is linear, '
+                'False if the model is non-linear.'
+            ),
+            'k': 'Current time step.',
+            'k_clock': 'Current time step for the clock.',
+            'dt': 'Discretization time step for the model.',
+            'dt_clock': 'Discretization time step for the clock.',
+            't_max': (
+                'Maximum operation time. '
+                'This will be used for memory allocation.'
+            ),
+            'sources': (
+                'List of sources for the model. '
+                'Possible values: goal, est, act, meas, filt, '
+                'meas_clock, filt_clock.'
+            ),
+            'info': 'Physical parameters of the model.',
+            'x_vars': 'Physical parameters declared as State variables.',
+            'z_vars': 'Physical parameters declared as Algebraic variables.',
+            'u_vars': (
+                'Physical parameters declared as Control Input variables.'
+            ),
+            'p_vars': 'Physical parameters declared as Disturbance variables.',
+            'q_vars': (
+                'Physical parameters declared as Known Varying variables.'
+            ),
+            'upq_vars': 'Physical parameters declared as u/p/q_vars.',
+            'y_vars': 'Physical parameters declared as Controlled variables.',
+            'm_vars': 'Physical parameters declared as Measured variables.',
+            'o_vars': 'Measured variables that are used in Observer.',
+        }
+    )
 
 
 @dataclass(kw_only=True)
 class ControllerSettings:
     name: str = 'controller'
-    dt: float = field(default=1.0)
+    dt: float = field(default=-1)
+    descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
 class OptimizerSettings:
     name: str = field(default='optimizer')
+    descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -88,6 +130,7 @@ class MPCSettings(ControllerSettings):
 @dataclass(kw_only=True)
 class IntegratorSettings:
     name: str = field(default='integrator')
+    descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(kw_only=True)
@@ -99,6 +142,7 @@ class IDASSettings(IntegratorSettings):
 @dataclass
 class ObserverSettings:
     name: str = field(default='observer')
+    descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -109,6 +153,7 @@ class KalmanSettings(ObserverSettings):
 @dataclass
 class PlantSettings:
     name: str = field(default='plant')
+    descriptions: dict[str, str] = field(default_factory=dict)
 
 
 class SettingsFactory:
@@ -137,6 +182,8 @@ class SettingsFactory:
 
 
 def create_settings_template(project_dir: Path | None = None):
+    # TODO: Check if declared variables are consistent with model.info
+
     # Set the project directory
     if project_dir is None:
         project_dir = Path.cwd()
@@ -144,7 +191,8 @@ def create_settings_template(project_dir: Path | None = None):
     # Get the configuration and equations file paths
     config_dir = project_dir / CONFIG_FOLDER
     equations_file = config_dir / 'equations.py'
-    config_file = config_dir / 'config.toml'
+    config_file = config_dir / 'config.csv'
+    info_file = config_dir / 'model_info.csv'
 
     # Check if settings/equations.py and settings/model_info.csv exists
     if not equations_file.exists() or not config_file.exists():
@@ -154,48 +202,35 @@ def create_settings_template(project_dir: Path | None = None):
         )
         return
 
-    # Load the configuration file
-    with config_file.open('rb') as f:
-        configs = tomllib.load(f)
-
-    # Create the DataFrames
-    settings_dfs: list[pd.DataFrame] = []
+    # Read the model info file
+    df_info, df_vars = _read_model_info_csv(info_file)
 
     # Create the model settings DataFrame
-    settings_dfs.append(
-        _create_settings_df(ModelSettings(), prefix='model'),
-    )
+    df_model = _get_class_settings(prefix='model')
 
-    # Create the MODEL.INFO DataFrame
-    settings_dfs.append(_create_model_info_df(configs))
+    # Update the model variables
+    df_model = _update_model_vars(df=df_model, df_vars=df_vars)
+
+    # Create the DataFrames
+    settings_dfs: list[pd.DataFrame] = [df_model, df_info]
+
+    # Read the configuration file
+    df_configs = _read_config_csv(config_file)
 
     # Create the INTEGRATOR settings DataFrame
-    if configs['system']['model']['is_continuous']:
-        integrator_name = configs['system']['model']['integrator']['name']
+    if _get_value(df=df_configs, parameter='model.is_continuous'):
         settings_dfs.append(
-            _create_settings_df(
-                SettingsFactory.create(name=integrator_name),
-                prefix='model.integrator',
-            ),
+            _get_class_settings(df=df_configs, prefix='model.integrator'),
         )
 
     # Create the CONTROLLER settings DataFrame
-    name = configs['system']['controller']['name']
     settings_dfs.append(
-        _create_settings_df(
-            SettingsFactory.create(name=name),
-            prefix='controller',
-        ),
+        _get_class_settings(df=df_configs, prefix='controller'),
     )
 
     # Create the OPTIMIZER settings DataFrame
     settings_dfs.append(
-        _create_settings_df(
-            SettingsFactory.create(
-                name=configs['system']['controller']['optimizer']['name'],
-            ),
-            prefix='controller.optimizer',
-        ),
+        _get_class_settings(df=df_configs, prefix='controller.optimizer'),
     )
 
     # Concatenate the DataFrames
@@ -218,7 +253,9 @@ def create_settings_template(project_dir: Path | None = None):
     ]
 
     # Lowercase the string values
-    settings_df = settings_df.map(
+    settings_df[['parameter', 'type', 'value']] = settings_df[
+        ['parameter', 'type', 'value']
+    ].map(
         lambda x: x.lower() if isinstance(x, str) else x,
     )
 
@@ -227,117 +264,187 @@ def create_settings_template(project_dir: Path | None = None):
     logger.debug('Settings file created successfully at %s.', df_path)
 
 
-def _create_model_info_df(
-    configs: dict[str, dict[str, dict[str, dict[str, float]]]],
-) -> pd.DataFrame:
-    df: dict[str, list] = {
+def _read_config_csv(config_file: Path) -> pd.DataFrame:
+    return pd.read_csv(config_file, na_filter=False)
+
+
+def _read_model_info_csv(
+    info_file: Path,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    df = pd.read_csv(info_file, na_filter=False)
+    data: dict[str, list] = {
         'parameter': [],
         'type': [],
         'value': [],
+        'description': [],
     }
+    data_vars: dict[str, list[str]] = {
+        'x': [],
+        'z': [],
+        'u': [],
+        'p': [],
+        'q': [],
+        'm': [],
+        'o': [],
+        'y': [],
+        'upq': [],
+        'const': [],
+    }
+    for _, row in df.iterrows():
+        if row['value'] != '':
+            data['parameter'].append('model.info.' + row['parameter'])
+            data['type'].append(row['type'])
+            data['value'].append(_cast_value(row['value'], row['type']))
+            data['description'].append(row['description'])
 
-    # Add x, z, u, p, q_vars to df
-    # vars_: is used for validating variable definitions
-    first_vars: dict[str, list[str]] = {}
-    for ss_var in SS_VARS_PRIMARY:
-        vars_list = list(configs['state_space'][ss_var].keys())
-        df['parameter'].append(f'model.{ss_var}_vars')
-        df['type'].append('list[str]')
-        df['value'].append(vars_list)
-        first_vars[ss_var] = vars_list
+            for ss_var in SS_VARS_PRIMARY:
+                if ss_var in row['role'] and row['role'] != 'const':
+                    data_vars[ss_var].append(row['parameter'])
 
-    # Add m, o, y_vars to df
-    second_vars: dict[str, list[str]] = {}
-    for ss_var in SS_VARS_SECONDARY:
-        vars_list = list(configs['state_space']['x'].keys())
-        df['parameter'].append(f'model.{ss_var}_vars')
-        df['type'].append('list[str]')
-        df['value'].append(vars_list)
-        second_vars[ss_var] = vars_list
+            for ss_var in SS_VARS_SECONDARY:
+                if ss_var in row['role'] and row['role'] != 'const':
+                    data_vars[ss_var].append(row['parameter'])
 
-    # Add upq_vars
-    upq_vars = first_vars['u'] + first_vars['p'] + first_vars['q']
-    df['parameter'].append('model.upq_vars')
-    df['type'].append('list[str]')
-    df['value'].append(upq_vars)
+            if row['role'] == 'const':
+                data_vars['const'].append(row['parameter'])
 
-    # Add physical parameters to df
-    all_vars: list[str] = []
-    for ss_var in SS_VARS_PRIMARY:
-        for key, info in configs['state_space'][ss_var].items():
-            df['parameter'].append(f'model.info.{key}')
-            df['type'].append('float')
-            df['value'].append(info['value'])
-            all_vars.append(key)
+    data_vars['upq'] = data_vars['u'] + data_vars['p'] + data_vars['q']
 
-    # All vars
-    # TODO: move to model
-    _validate_definitions(
-        first_vars=first_vars,
-        second_vars=second_vars,
-        all_vars=all_vars,
-    )
-    logger.debug('Validated system variable declarations.')
-    return pd.DataFrame(df)
+    df_vars: dict[str, list] = {
+        'parameter': [],
+        'value': [],
+    }
+    for key, value in data_vars.items():
+        df_vars['parameter'].append(f'model.{key}_vars')
+        df_vars['value'].append(value)
+
+    return pd.DataFrame(data), pd.DataFrame(df_vars)
 
 
-def _create_settings_df(
-    settings: ModelSettings | IDASSettings | MPCSettings | OptimizerSettings,
-    prefix='',
+def _update_model_vars(
+    df: pd.DataFrame, df_vars: pd.DataFrame
 ) -> pd.DataFrame:
+    # Merge df with df_vars on 'parameter' column
+    merged_df = df.merge(
+        df_vars,
+        on='parameter',
+        suffixes=('', '_new'),
+        how='left',
+    )
+
+    # Update the 'value' column in df with the 'value_new' column from df_vars
+    merged_df['value'] = merged_df['value_new'].combine_first(
+        merged_df['value']
+    )
+
+    # Drop the 'value_new' column
+    return merged_df.drop(columns=['value_new'])
+
+
+def _get_type(df: pd.DataFrame, parameter: str) -> str:
+    return df.loc[df['parameter'] == parameter, 'type'].values[0]
+
+
+def _get_value(df: pd.DataFrame, parameter: str) -> str:
+    value = df.loc[df['parameter'] == parameter, 'value'].values[0]
+    type_ = _get_type(df, parameter)
+    return _cast_value(value=value, value_type=type_)
+
+
+def _get_class_settings(
+    df: pd.DataFrame | None = None, prefix: str = ''
+) -> pd.DataFrame:
+    if df is None and prefix == 'model':
+        settings = SettingsFactory.create(name='model')
+    elif df is not None:
+        try:
+            settings = SettingsFactory.create(
+                name=_get_value(df=df, parameter=prefix + '.name'),
+            )
+        except ValueError:
+            # TODO: check if this is the best way to handle this
+            msg = f'Unknown element name with prefix = {prefix}.'
+            raise ValueError(msg) from None
+
+    # Create a dictionary to store the data
     data: dict[str, list] = {
         'parameter': [],
         'type': [],
         'value': [],
     }
+
+    # Create an empty DataFrame for the options
+    # in case the settings have options
     df_opts = pd.DataFrame()
+
+    # Get the descriptions if available
+    if hasattr(settings, 'descriptions'):
+        data['description'] = []
+        descriptions = settings.descriptions
+    else:
+        descriptions = {}
+
     for field_ in fields(settings):
-        if field_.name == 'opts':
+        name = field_.name
+        type_ = field_.type
+
+        # Add the options if available
+        if name == 'opts':
             # Get options from file
-            df_opts = _get_settings_from_file(settings.name)
-            df_opts = df_opts[['parameter', 'type', 'value']]
+            df_opts = _get_options_from_file(settings.name)
+            df_opts = df_opts[['parameter', 'type', 'value', 'description']]
             df_opts.loc[:, 'parameter'] = df_opts['parameter'].apply(
                 lambda x: f'{prefix}.opts.{x}',
             )
-        elif (
-            field_.name not in ['info']
-            and '_types' not in field_.name
-            and '_vars' not in field_.name
-        ):
+
+        # Add the settings to the dictionary
+        elif name not in ['info', 'descriptions'] and '_types' not in name:
             # Get the type of the field
-            if isinstance(field_.type, UnionType):
-                data['parameter'].append(f'{prefix}.{field_.name}')
-                data['type'].append(str(field_.type))
-                data['value'].append(getattr(settings, field_.name))
+            if isinstance(type_, UnionType):
+                data['parameter'].append(f'{prefix}.{name}')
+                data['type'].append(str(type_))
+                data['value'].append(getattr(settings, name))
 
-            elif field_.type.__name__ == 'list':
-                if isinstance(field_.type.__args__[0], UnionType):
-                    type_0 = str(field_.type.__args__[0])
+            elif type_.__name__ == 'list':
+                if isinstance(type_.__args__[0], UnionType):
+                    type_0 = str(type_.__args__[0])
                 else:
-                    type_0 = field_.type.__args__[0].__name__
+                    type_0 = type_.__args__[0].__name__
 
-                data['parameter'].append(f'{prefix}.{field_.name}')
+                data['parameter'].append(f'{prefix}.{name}')
                 data['type'].append(f'list[{type_0}]')
-                data['value'].append(getattr(settings, field_.name))
+                data['value'].append(getattr(settings, name))
 
-            elif field_.type.__name__ == 'dict':
-                values_dict = getattr(settings, field_.name)
-                types_dict = getattr(settings, f'_{field_.name}_types')
+            elif type_.__name__ == 'dict':
+                values_dict: dict = getattr(settings, name)
+                types_dict: dict = getattr(settings, f'_{name}_types')
 
                 for key, val in values_dict.items():
-                    data['parameter'].append(f'{prefix}.{field_.name}.{key}')
+                    data['parameter'].append(f'{prefix}.{name}.{key}')
                     data['type'].append(types_dict[key])
                     data['value'].append(val)
 
             else:
-                data['parameter'].append(f'{prefix}.{field_.name}')
-                data['type'].append(field_.type.__name__)
-                data['value'].append(getattr(settings, field_.name))
+                data['parameter'].append(f'{prefix}.{name}')
+                data['type'].append(type_.__name__)
+                data['value'].append(getattr(settings, name))
 
+            # Add the description if available
+            if name in descriptions:
+                data['description'].append(descriptions[name])
+            else:
+                data['description'].append('')
+
+    # Create a DataFrame from the data
     df = pd.DataFrame(data)
 
     # Concatenate the DataFrames
     return pd.concat([df, df_opts], ignore_index=True)
+
+
+def _get_options_from_file(name: str) -> pd.DataFrame:
+    setting_file = Path(__file__).parent / f'{name}_options.csv'
+    return pd.read_csv(setting_file, na_filter=False)
 
 
 def extract_settings_from_file(
@@ -407,31 +514,21 @@ def extract_settings_from_file(
     return all_
 
 
-def _validate_definitions(
-    first_vars: dict[str, list[str]],
-    second_vars: dict[str, list[str]],
-    all_vars: list[str],
-):
-    primary_vars = list(itertools.chain(*first_vars.values()))
+def _df_to_nested_dict(df: pd.DataFrame) -> dict:
+    nested_dict: dict = {}
+    for _, row in df.iterrows():
+        if row['value'] != '':
+            keys = row['parameter'].split('.', 3)
+            value_type = row['type']
+            value = _cast_value(row['value'], value_type)
 
-    if (len(primary_vars) != len(all_vars)) and (
-        set(primary_vars) != set(all_vars)
-    ):
-        msg = (
-            'The total length of x/z/u/p/q_vars must be equal to '
-            'the number of variables declared in model.info.'
-        )
-        raise ValueError(msg)
-
-    # ss_var: state space variable
-    for ss_var, vars_list in second_vars.items():
-        if not set(vars_list).issubset(set(all_vars)):
-            raise SystemVariableError(ss_var, 'physical variables')
-
-
-def _get_settings_from_file(name: str) -> pd.DataFrame:
-    setting_file = Path(__file__).parent / f'{name}_options.csv'
-    return pd.read_csv(setting_file, na_filter=False)
+            d = nested_dict
+            for key in keys[:-1]:
+                if key not in d:
+                    d[key] = {}
+                d = d[key]
+            d[keys[-1]] = value
+    return nested_dict
 
 
 def _cast_value(value: str, value_type: str):
@@ -470,20 +567,3 @@ def _cast_value(value: str, value_type: str):
 
     msg = f'Unsupported type: {value_type}'
     raise ValueError(msg)
-
-
-def _df_to_nested_dict(df: pd.DataFrame) -> dict:
-    nested_dict: dict = {}
-    for _, row in df.iterrows():
-        if row['value'] != '':
-            keys = row['parameter'].split('.', 3)
-            value_type = row['type']
-            value = _cast_value(row['value'], value_type)
-
-            d = nested_dict
-            for key in keys[:-1]:
-                if key not in d:
-                    d[key] = {}
-                d = d[key]
-            d[keys[-1]] = value
-    return nested_dict

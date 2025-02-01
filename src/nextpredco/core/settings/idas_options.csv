@@ -1,6 +1,6 @@
 parameter,type,cpp_type,value,description
-abstol,float,OT_DOUBLE,,Absolute tolerence for the IVP solution
-abstolv,list[float],OT_DOUBLEVECTOR,,Absolute tolerarance for each component
+abstol,float,OT_DOUBLE,,Absolute tolerance for the IVP solution
+abstolv,list[float],OT_DOUBLEVECTOR,,Absolute tolerance for each component
 calc_ic,bool,OT_BOOL,,Use IDACalcIC to get consistent initial conditions.
 calc_icB,bool,OT_BOOL,,Use IDACalcIC to get consistent initial conditions for backwards system [default: equal to calc_ic].
 cj_scaling,bool,OT_BOOL,,IDAS scaling on cj for the user-defined linear solver module
@@ -16,11 +16,11 @@ max_krylov,int,OT_INT,,Maximum Krylov subspace size
 max_multistep_order,int,OT_INT,,Maximum order for the (variable-order) multistep method
 max_num_steps,int,OT_INT,,Maximum number of integrator steps
 max_order,float,OT_DOUBLE,,Maximum order
-max_step_size,float,OT_DOUBLE,,Maximim step size
+max_step_size,float,OT_DOUBLE,,Maximum step size
 newton_scheme,str,OT_STRING,,Linear solver scheme in the Newton method: DIRECT|gmres|bcgstab|tfqmr
 nonlin_conv_coeff,float,OT_DOUBLE,,Coefficient in the nonlinear convergence test
 quad_err_con,bool,OT_BOOL,,Should the quadratures affect the step size control
-reltol,float,OT_DOUBLE,,Relative tolerence for the IVP solution
+reltol,float,OT_DOUBLE,,Relative tolerance for the IVP solution
 scale_abstol,bool,OT_BOOL,,Scale absolute tolerance by nominal value
 second_order_correction,bool,OT_BOOL,,Second order correction in the augmented system Jacobian [true]
 sensitivity_method,str,OT_STRING,,Sensitivity method: SIMULTANEOUS|staggered
