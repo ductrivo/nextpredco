@@ -54,6 +54,7 @@ class ModelSettings:
     upq_vars: list[str] = field(default_factory=list)
     const_vars: list[str] = field(default_factory=list)
 
+    tex: dict[str, str] = field(default_factory=dict)
     descriptions: dict[str, str] = field(
         default_factory=lambda: {
             'is_continuous': (
@@ -276,6 +277,7 @@ def _read_model_info_csv(
         'parameter': [],
         'type': [],
         'value': [],
+        'tex': [],
         'description': [],
     }
     data_vars: dict[str, list[str]] = {
@@ -296,6 +298,7 @@ def _read_model_info_csv(
             data['type'].append(row['type'])
             data['value'].append(_cast_value(row['value'], row['type']))
             data['description'].append(row['description'])
+            data['tex'].append(row['tex'])
 
             for ss_var in SS_VARS_PRIMARY:
                 if ss_var in row['role'] and row['role'] != 'const':
@@ -371,6 +374,8 @@ def _get_class_settings(
         'parameter': [],
         'type': [],
         'value': [],
+        'tex': [],
+        'description': [],
     }
 
     # Create an empty DataFrame for the options
@@ -378,11 +383,11 @@ def _get_class_settings(
     df_opts = pd.DataFrame()
 
     # Get the descriptions if available
-    if hasattr(settings, 'descriptions'):
-        data['description'] = []
-        descriptions = settings.descriptions
-    else:
-        descriptions = {}
+    descriptions = (
+        settings.descriptions if hasattr(settings, 'descriptions') else {}
+    )
+
+    tex = settings.tex if hasattr(settings, 'tex') else {}
 
     for field_ in fields(settings):
         name = field_.name
@@ -398,7 +403,10 @@ def _get_class_settings(
             )
 
         # Add the settings to the dictionary
-        elif name not in ['info', 'descriptions'] and '_types' not in name:
+        elif (
+            name not in ['info', 'descriptions', 'tex']
+            and '_types' not in name
+        ):
             # Get the type of the field
             if isinstance(type_, UnionType):
                 data['parameter'].append(f'{prefix}.{name}')
@@ -428,6 +436,12 @@ def _get_class_settings(
                 data['parameter'].append(f'{prefix}.{name}')
                 data['type'].append(type_.__name__)
                 data['value'].append(getattr(settings, name))
+
+            # Add the tex if available
+            if name in tex:
+                data['tex'].append(tex[name])
+            else:
+                data['tex'].append('')
 
             # Add the description if available
             if name in descriptions:
@@ -516,6 +530,7 @@ def extract_settings_from_file(
 
 def _df_to_nested_dict(df: pd.DataFrame) -> dict:
     nested_dict: dict = {}
+    tex_dict: dict = {}
     for _, row in df.iterrows():
         if row['value'] != '':
             keys = row['parameter'].split('.', 3)
@@ -528,6 +543,15 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
                     d[key] = {}
                 d = d[key]
             d[keys[-1]] = value
+
+            if 'model.info' in row['parameter']:
+                key = row['parameter'].replace('model.info.', '')
+                tex_dict[key] = row['tex']
+
+    if len(tex_dict) > 0:
+        nested_dict['model']['tex'] = tex_dict
+    logger.debug(tex_dict)
+    input('Press Enter to continue...')
     return nested_dict
 
 

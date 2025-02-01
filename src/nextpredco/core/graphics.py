@@ -28,12 +28,12 @@ def plot_transient(
 
     ax = [ax_] if n_ax == 1 else ax_
 
-    t = model.t.get_hist(0, model.k).T
-    x = model.get_var('c_a').est.get_hist(0, model.k).T
+    t = model.t.get_hist(0, model.k)[0, :]
+    x = model.get_var('c_a').est.get_hist(0, model.k)[0, :]
 
     ax[0].plot(t, x, label='x_est')
     ax[0].set_xlabel('Time [s]')
-    ax[0].set_ylabel('x')
+    ax[0].set_ylabel(f'${model._settings.tex["c_a"]}$')
     ax[0].set_xlim(t0, tf)
     ax[0].set_ylim(x.min(), x.max())
     plt.show()
