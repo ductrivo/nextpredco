@@ -118,22 +118,19 @@ class Model:
         # model_data_path: Path = DATA_DIR / "ex_chen1998.csv",
         settings: ModelSettings | None = None,
         integrator: IDAS | None = None,
-    ) -> None:  # Extract model information and initial values
+    ) -> None:
+        # Load settings
         self._settings = settings
-        logger.debug(
-            'Model settings:\n%s',
-            pretty_repr(self._settings),
-        )
+        logger.debug('Model settings:\n%s', pretty_repr(self._settings))
+
+        # Load integrator
         self._integrator = integrator
 
+        # Load data
         self._data = self._create_data()
-        logger.debug(
-            'Created data holder. Result:\n%s',
-            pretty_repr(self._data),
-        )
 
+        # Load equations
         self._transient_eqs, self._transient_funcs = self._create_equations()
-        logger.debug('Loaded equations.')
 
     def _create_data(self) -> ModelData:
         # Create data holder

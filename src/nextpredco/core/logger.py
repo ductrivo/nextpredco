@@ -32,6 +32,9 @@ logger = logging.getLogger('nextpredco')
 logger.setLevel(logging.DEBUG)  # Set the log level
 
 # Create formatters
+simple_formatter = logging.Formatter(
+    '%(name)s - [in %(pathname)s:%(lineno)d]:- %(message)s'
+)
 standard_formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )
@@ -43,11 +46,13 @@ detailed_formatter = logging.Formatter(
 # Create handlers
 console_handler: RichHandler | logging.StreamHandler
 if rich_handler_imported:
-    console_handler = RichHandler(show_time=False, rich_tracebacks=True)
+    console_handler = RichHandler(show_path=True, rich_tracebacks=True)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(simple_formatter)
 else:
     console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
-console_handler.setFormatter(detailed_formatter)
+    console_handler.setLevel(logging.DEBUG)
+    console_handler.setFormatter(detailed_formatter)
 
 # Create file handlers
 file_handler = logging.FileHandler(
