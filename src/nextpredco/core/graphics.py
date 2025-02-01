@@ -28,8 +28,8 @@ def plot_transient(
     ax = [ax_] if n_ax == 1 else ax_
 
     t = model.t.get_hist(0, model.k).T
-    x = model.x.est.get_hist(0, model.k).T
-
+    x = model.get_var('c_a').est.get_hist(0, model.k).T
+    input(x)
     ax[0].plot(t, x, label='x_est')
     ax[0].set_xlabel('Time [s]')
     ax[0].set_ylabel('x')

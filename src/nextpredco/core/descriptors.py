@@ -146,7 +146,7 @@ class SystemVariableView:
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, k0 : (k1 + 1)]
 
-        return self._arr_full[self._idx_list, k0:k1]
+        return self._arr_full[self._idx_list, k0 : (k1 + 1)]
 
     def set_hist(
         self,
@@ -209,7 +209,8 @@ class SystemVariable:
         raise AttributeError(error_msg)
 
     def __get__(self, instance, owner) -> VariableSource:
-        self.sources: SourceType = instance._settings.sources
+        sources: SourceType = instance._settings.sources
+
         self._vars: list[str] = getattr(
             instance._settings,
             f'{self._name}_vars',
@@ -217,11 +218,13 @@ class SystemVariable:
 
         arr_fulls: dict[str, NDArray] = {}
         idx_lists: dict[str, list[int]] = {}
-        for source in self.sources:
+        for source in sources:
             arr_fulls[source], idx_lists[source] = (
                 self._get_arr_fulls_and_idx_lists(
                     instance,
-                    source,
+                    ss_name=self._name,
+                    name=self._name,
+                    source=source,
                 )
             )
 
@@ -235,6 +238,8 @@ class SystemVariable:
     def _get_arr_fulls_and_idx_lists(
         self,
         instance,
+        ss_name: str,
+        name: str,
         source: str,
     ) -> tuple[NDArray, list[int]]:
         # Extract the variables
@@ -243,39 +248,77 @@ class SystemVariable:
         upq_vars: list[str] = instance._settings.upq_vars
 
         # Extract the full arrays
-        if self._name in ['x', *x_vars, *SS_VARS_SECONDARY]:
+        if name in ['x', *x_vars, *SS_VARS_SECONDARY]:
             arr_full = getattr(instance._data, f'x_{source}_full')
-        elif self._name in ['z', *z_vars]:
+        elif name in ['z', *z_vars]:
             arr_full = getattr(instance._data, f'z_{source}_full')
-        elif self._name in ['u', 'p', 'q', 'upq', *upq_vars]:
+        elif name in ['u', 'p', 'q', 'upq', *upq_vars]:
             arr_full = getattr(instance._data, f'upq_{source}_full')
         else:
-            raise NotAvailableAttributeError(self._name)
+            raise NotAvailableAttributeError(name)
 
         # Extract the indexes
-        if self._name in SS_VARS_DB:
+        if name in SS_VARS_DB:
             idx_list = list(range(arr_full.shape[0]))
 
-        elif self._name in ['u', 'p', 'q']:
-            vars_ = getattr(instance._settings, f'{self._name}_vars')
+        elif name in ['u', 'p', 'q']:
+            vars_ = getattr(instance._settings, f'{name}_vars')
             idx_list = [upq_vars.index(var_) for var_ in vars_]
 
-        elif self._name in x_vars:
-            idx_list = [x_vars.index(self._name)]
-
-        elif self._name in z_vars:
-            idx_list = [z_vars.index(self._name)]
-
-        elif self._name in SS_VARS_SECONDARY:
-            vars_ = getattr(instance._settings, f'{self._name}_vars')
+        elif name in SS_VARS_SECONDARY:
+            vars_ = getattr(instance._settings, f'{name}_vars')
             idx_list = [x_vars.index(var_) for var_ in vars_]
 
-        elif self._name in upq_vars:
-            idx_list = [upq_vars.index(self._name)]
+        elif name in x_vars:
+            idx_list = [x_vars.index(name)]
+
+        elif name in z_vars:
+            idx_list = [z_vars.index(name)]
+
+        elif name in upq_vars:
+            idx_list = [upq_vars.index(name)]
+
         else:
-            raise NotAvailableAttributeError(self._name)
+            raise NotAvailableAttributeError(name)
 
         return arr_full, idx_list
+
+
+class PhysicalVariable(SystemVariable):
+    def __get__(self, instance, owner):
+        self._x_vars: list[str] = instance._settings.x_vars  # type: ignore[annotation-unchecked]
+        self._z_vars: list[str] = instance._settings.z_vars  # type: ignore[annotation-unchecked]
+        self._upq_vars: list[str] = instance._settings.upq_vars  # type: ignore[annotation-unchecked]
+
+        self._sources: SourceType = instance._settings.sources  # type: ignore[annotation-unchecked]
+        self._instance = instance
+        return self.get_val
+
+    def get_val(self, var_: str):
+        if var_ in self._x_vars:
+            ss_name = 'x'
+        elif var_ in self._z_vars:
+            ss_name = 'z'
+        elif var_ in self._upq_vars:
+            ss_name = 'upq'
+
+        arr_fulls: dict[str, NDArray] = {}
+        idx_lists: dict[str, list[int]] = {}
+        for source in self._sources:
+            arr_fulls[source], idx_lists[source] = (
+                self._get_arr_fulls_and_idx_lists(
+                    self._instance,
+                    ss_name=ss_name,
+                    name=var_,
+                    source=source,
+                )
+            )
+        return VariableSource(
+            self._instance._data.k,
+            self._instance._data.k_clock,
+            arr_fulls,
+            idx_lists,
+        )
 
 
 class TimeVariable:

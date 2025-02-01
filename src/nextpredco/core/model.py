@@ -14,11 +14,13 @@ from nextpredco.core.consts import (
 )
 from nextpredco.core.custom_types import SymVar
 from nextpredco.core.descriptors import (
+    PhysicalVariable,
     ReadOnlyFloat,
     ReadOnlyInt,
     ReadOnlySource,
     SystemVariable,
     TimeVariable,
+    VariableSource,
 )
 from nextpredco.core.integrator import IDAS
 from nextpredco.core.logger import logger
@@ -106,6 +108,7 @@ class Model:
     y = SystemVariable()
     m = SystemVariable()
     o = SystemVariable()
+    _physical_var = PhysicalVariable()
     upq = SystemVariable()
     t = TimeVariable()
     t_clock = TimeVariable()
@@ -131,10 +134,6 @@ class Model:
 
         self._transient_eqs, self._transient_funcs = self._create_equations()
         logger.debug('Loaded equations.')
-
-    @property
-    def k(self) -> int:
-        return self._data.k
 
     def _create_data(self) -> ModelData:
         # Create data holder
@@ -261,6 +260,13 @@ class Model:
         # TODO: try other ways to update time
         # Try case to work with t_clock
         self.t.set_val(k=self._data.k, val=self._data.k * self._settings.dt)
+
+    @property
+    def k(self) -> int:
+        return self._data.k
+
+    def get_var(self, var_: str) -> VariableSource:
+        return self._physical_var(var_)
 
     def n(self, ss_var: str) -> int:
         return len(getattr(self._settings, f'{ss_var}_vars'))
