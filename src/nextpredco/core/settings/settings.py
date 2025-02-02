@@ -20,6 +20,7 @@ TYPE = 'type'
 VALUE = 'value'
 TEX = 'tex'
 DESCRIPTION = 'description'
+ROLE = 'role'
 
 
 @dataclass
@@ -307,14 +308,14 @@ def _read_model_info_csv(
             data[TEX].append(row[TEX])
 
             for ss_var in SS_VARS_PRIMARY:
-                if ss_var in row['role'] and row['role'] != 'const':
+                if ss_var in row[ROLE] and row[ROLE] != 'const':
                     data_vars[ss_var].append(row[PARAMETER])
 
             for ss_var in SS_VARS_SECONDARY:
-                if ss_var in row['role'] and row['role'] != 'const':
+                if ss_var in row[ROLE] and row[ROLE] != 'const':
                     data_vars[ss_var].append(row[PARAMETER])
 
-            if row['role'] == 'const':
+            if row[ROLE] == 'const':
                 data_vars['const'].append(row[PARAMETER])
 
     data_vars['upq'] = data_vars['u'] + data_vars['p'] + data_vars['q']
