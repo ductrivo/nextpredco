@@ -15,6 +15,12 @@ from nextpredco.core.consts import (
 from nextpredco.core.errors import SystemVariableError
 from nextpredco.core.logger import logger
 
+PARAMETER = 'parameter'
+TYPE = 'type'
+VALUE = 'value'
+TEX = 'tex'
+DESCRIPTION = 'description'
+
 
 @dataclass
 class ModelSettings:
@@ -248,14 +254,14 @@ def create_settings_template(project_dir: Path | None = None):
     # If not do this, list[str] such as ['x1', 'x2']
     # will be converted to "['x1', 'x2']".
     # With this, we have "[x1, x2]" which is more readable.
-    settings_df['value'] = [
+    settings_df[VALUE] = [
         utils.list_to_str(value) if isinstance(value, list) else value
-        for value in settings_df['value']
+        for value in settings_df[VALUE]
     ]
 
     # Lowercase the string values
-    settings_df[['parameter', 'type', 'value']] = settings_df[
-        ['parameter', 'type', 'value']
+    settings_df[[PARAMETER, TYPE, VALUE]] = settings_df[
+        [PARAMETER, TYPE, VALUE]
     ].map(
         lambda x: x.lower() if isinstance(x, str) else x,
     )
@@ -274,11 +280,11 @@ def _read_model_info_csv(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     df = pd.read_csv(info_file, na_filter=False)
     data: dict[str, list] = {
-        'parameter': [],
-        'type': [],
-        'value': [],
-        'tex': [],
-        'description': [],
+        PARAMETER: [],
+        TYPE: [],
+        VALUE: [],
+        TEX: [],
+        DESCRIPTION: [],
     }
     data_vars: dict[str, list[str]] = {
         'x': [],
@@ -293,33 +299,33 @@ def _read_model_info_csv(
         'const': [],
     }
     for _, row in df.iterrows():
-        if row['value'] != '':
-            data['parameter'].append('model.info.' + row['parameter'])
-            data['type'].append(row['type'])
-            data['value'].append(_cast_value(row['value'], row['type']))
-            data['description'].append(row['description'])
-            data['tex'].append(row['tex'])
+        if row[VALUE] != '':
+            data[PARAMETER].append('model.info.' + row[PARAMETER])
+            data[TYPE].append(row[TYPE])
+            data[VALUE].append(_cast_value(row[VALUE], row[TYPE]))
+            data[DESCRIPTION].append(row[DESCRIPTION])
+            data[TEX].append(row[TEX])
 
             for ss_var in SS_VARS_PRIMARY:
                 if ss_var in row['role'] and row['role'] != 'const':
-                    data_vars[ss_var].append(row['parameter'])
+                    data_vars[ss_var].append(row[PARAMETER])
 
             for ss_var in SS_VARS_SECONDARY:
                 if ss_var in row['role'] and row['role'] != 'const':
-                    data_vars[ss_var].append(row['parameter'])
+                    data_vars[ss_var].append(row[PARAMETER])
 
             if row['role'] == 'const':
-                data_vars['const'].append(row['parameter'])
+                data_vars['const'].append(row[PARAMETER])
 
     data_vars['upq'] = data_vars['u'] + data_vars['p'] + data_vars['q']
 
     df_vars: dict[str, list] = {
-        'parameter': [],
-        'value': [],
+        PARAMETER: [],
+        VALUE: [],
     }
     for key, value in data_vars.items():
-        df_vars['parameter'].append(f'model.{key}_vars')
-        df_vars['value'].append(value)
+        df_vars[PARAMETER].append(f'model.{key}_vars')
+        df_vars[VALUE].append(value)
 
     return pd.DataFrame(data), pd.DataFrame(df_vars)
 
@@ -327,29 +333,27 @@ def _read_model_info_csv(
 def _update_model_vars(
     df: pd.DataFrame, df_vars: pd.DataFrame
 ) -> pd.DataFrame:
-    # Merge df with df_vars on 'parameter' column
+    # Merge df with df_vars on PARAMETER column
     merged_df = df.merge(
         df_vars,
-        on='parameter',
+        on=PARAMETER,
         suffixes=('', '_new'),
         how='left',
     )
 
-    # Update the 'value' column in df with the 'value_new' column from df_vars
-    merged_df['value'] = merged_df['value_new'].combine_first(
-        merged_df['value']
-    )
+    # Update the VALUE column in df with the 'value_new' column from df_vars
+    merged_df[VALUE] = merged_df['value_new'].combine_first(merged_df[VALUE])
 
     # Drop the 'value_new' column
     return merged_df.drop(columns=['value_new'])
 
 
 def _get_type(df: pd.DataFrame, parameter: str) -> str:
-    return df.loc[df['parameter'] == parameter, 'type'].values[0]
+    return df.loc[df[PARAMETER] == parameter, TYPE].values[0]
 
 
 def _get_value(df: pd.DataFrame, parameter: str) -> str:
-    value = df.loc[df['parameter'] == parameter, 'value'].values[0]
+    value = df.loc[df[PARAMETER] == parameter, VALUE].values[0]
     type_ = _get_type(df, parameter)
     return _cast_value(value=value, value_type=type_)
 
@@ -371,11 +375,11 @@ def _get_class_settings(
 
     # Create a dictionary to store the data
     data: dict[str, list] = {
-        'parameter': [],
-        'type': [],
-        'value': [],
-        'tex': [],
-        'description': [],
+        PARAMETER: [],
+        TYPE: [],
+        VALUE: [],
+        TEX: [],
+        DESCRIPTION: [],
     }
 
     # Create an empty DataFrame for the options
@@ -387,7 +391,7 @@ def _get_class_settings(
         settings.descriptions if hasattr(settings, 'descriptions') else {}
     )
 
-    tex = settings.tex if hasattr(settings, 'tex') else {}
+    tex = settings.tex if hasattr(settings, TEX) else {}
 
     for field_ in fields(settings):
         name = field_.name
@@ -397,21 +401,20 @@ def _get_class_settings(
         if name == 'opts':
             # Get options from file
             df_opts = _get_options_from_file(settings.name)
-            df_opts = df_opts[['parameter', 'type', 'value', 'description']]
-            df_opts.loc[:, 'parameter'] = df_opts['parameter'].apply(
+            df_opts = df_opts[[PARAMETER, TYPE, VALUE, DESCRIPTION]]
+            df_opts.loc[:, PARAMETER] = df_opts[PARAMETER].apply(
                 lambda x: f'{prefix}.opts.{x}',
             )
 
         # Add the settings to the dictionary
         elif (
-            name not in ['info', 'descriptions', 'tex']
-            and '_types' not in name
+            name not in ['info', 'descriptions', TEX] and '_types' not in name
         ):
             # Get the type of the field
             if isinstance(type_, UnionType):
-                data['parameter'].append(f'{prefix}.{name}')
-                data['type'].append(str(type_))
-                data['value'].append(getattr(settings, name))
+                data[PARAMETER].append(f'{prefix}.{name}')
+                data[TYPE].append(str(type_))
+                data[VALUE].append(getattr(settings, name))
 
             elif type_.__name__ == 'list':
                 if isinstance(type_.__args__[0], UnionType):
@@ -419,35 +422,35 @@ def _get_class_settings(
                 else:
                     type_0 = type_.__args__[0].__name__
 
-                data['parameter'].append(f'{prefix}.{name}')
-                data['type'].append(f'list[{type_0}]')
-                data['value'].append(getattr(settings, name))
+                data[PARAMETER].append(f'{prefix}.{name}')
+                data[TYPE].append(f'list[{type_0}]')
+                data[VALUE].append(getattr(settings, name))
 
             elif type_.__name__ == 'dict':
                 values_dict: dict = getattr(settings, name)
                 types_dict: dict = getattr(settings, f'_{name}_types')
 
                 for key, val in values_dict.items():
-                    data['parameter'].append(f'{prefix}.{name}.{key}')
-                    data['type'].append(types_dict[key])
-                    data['value'].append(val)
+                    data[PARAMETER].append(f'{prefix}.{name}.{key}')
+                    data[TYPE].append(types_dict[key])
+                    data[VALUE].append(val)
 
             else:
-                data['parameter'].append(f'{prefix}.{name}')
-                data['type'].append(type_.__name__)
-                data['value'].append(getattr(settings, name))
+                data[PARAMETER].append(f'{prefix}.{name}')
+                data[TYPE].append(type_.__name__)
+                data[VALUE].append(getattr(settings, name))
 
             # Add the tex if available
             if name in tex:
-                data['tex'].append(tex[name])
+                data[TEX].append(tex[name])
             else:
-                data['tex'].append('')
+                data[TEX].append('')
 
             # Add the description if available
             if name in descriptions:
-                data['description'].append(descriptions[name])
+                data[DESCRIPTION].append(descriptions[name])
             else:
-                data['description'].append('')
+                data[DESCRIPTION].append('')
 
     # Create a DataFrame from the data
     df = pd.DataFrame(data)
@@ -457,6 +460,10 @@ def _get_class_settings(
 
 
 def _get_options_from_file(name: str) -> pd.DataFrame:
+    # CasADi has some common options used in their interfaces
+    # to 3rd party solvers. Thus, we need to merge these options
+    # with the specific options of the solver.
+    # There are 3 groups: root finding, integrator, and NLP solvers.
     opts_folder = Path(__file__).parent / 'options'
     if name in ['kinsol', 'fast_newton', 'newton']:
         df_1 = pd.read_csv(
@@ -479,23 +486,21 @@ def _get_options_from_file(name: str) -> pd.DataFrame:
 
 
 def merge_dfs(df_1: pd.DataFrame, df_2: pd.DataFrame) -> pd.DataFrame:
-    # Merge df_1 with df_2 on 'parameter' column
+    # Merge df_1 with df_2 on PARAMETER column
     merged_df = df_1.merge(
-        df_2, on='parameter', suffixes=('', '_new'), how='left'
+        df_2, on=PARAMETER, suffixes=('', '_new'), how='left'
     )
 
-    # Update the 'type', 'value', and 'description' columns
+    # Update the TYPE, VALUE, and DESCRIPTION columns
     # in df_1 with those from df_2
-    for column in ['type', 'value', 'description']:
+    for column in [TYPE, VALUE, DESCRIPTION]:
         merged_df[column] = merged_df[f'{column}_new'].combine_first(
             merged_df[column]
         )
 
     # Drop the '_new' columns
     return merged_df.drop(
-        columns=[
-            f'{column}_new' for column in ['type', 'value', 'description']
-        ]
+        columns=[f'{column}_new' for column in [TYPE, VALUE, DESCRIPTION]]
     )
 
 
@@ -570,10 +575,10 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
     nested_dict: dict = {}
     tex_dict: dict[str, str] = {}
     for _, row in df.iterrows():
-        if row['value'] != '':
-            keys = row['parameter'].split('.', 3)
-            value_type = row['type']
-            value = _cast_value(row['value'], value_type)
+        if row[VALUE] != '':
+            keys = row[PARAMETER].split('.', 3)
+            value_type = row[TYPE]
+            value = _cast_value(row[VALUE], value_type)
 
             d = nested_dict
             for key in keys[:-1]:
@@ -582,14 +587,12 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
                 d = d[key]
             d[keys[-1]] = value
 
-            if 'model.info' in row['parameter']:
-                key = row['parameter'].replace('model.info.', '')
-                tex_dict[key] = (
-                    row['tex'].replace('{', '{{').replace('}', '}}')
-                )
+            if 'model.info' in row[PARAMETER]:
+                key = row[PARAMETER].replace('model.info.', '')
+                tex_dict[key] = row[TEX].replace('{', '{{').replace('}', '}}')
 
     if len(tex_dict) > 0:
-        nested_dict['model']['tex'] = tex_dict
+        nested_dict['model'][TEX] = tex_dict
 
     return nested_dict
 
