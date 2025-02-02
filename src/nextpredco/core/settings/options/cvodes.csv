@@ -1,5 +1,5 @@
 parameter,type,cpp_type,value,description
-abstol,float,OT_DOUBLE,,Absolute tolerence for the IVP solution
+abstol,float,OT_DOUBLE,,Absolute tolerance for the IVP solution
 always_recalculate_jacobian,bool,OT_BOOL,,"Recalculate Jacobian before factorizations, even if Jacobian is current [default: true]"
 disable_internal_warnings,bool,OT_BOOL,,Disable SUNDIALS internal warning messages
 fsens_all_at_once,bool,OT_BOOL,,Calculate all right hand sides of the sensitivity equations at once
@@ -18,7 +18,7 @@ newton_scheme,str,OT_STRING,,Linear solver scheme in the Newton method: DIRECT|g
 nonlin_conv_coeff,float,OT_DOUBLE,,Coefficient in the nonlinear convergence test
 nonlinear_solver_iteration,str,OT_STRING,,Nonlinear solver type: NEWTON|functional
 quad_err_con,bool,OT_BOOL,,Should the quadratures affect the step size control
-reltol,float,OT_DOUBLE,,Relative tolerence for the IVP solution
+reltol,float,OT_DOUBLE,,Relative tolerance for the IVP solution
 scale_abstol,bool,OT_BOOL,,Scale absolute tolerance by nominal value
 second_order_correction,bool,OT_BOOL,,Second order correction in the augmented system Jacobian [true]
 sensitivity_method,str,OT_STRING,,Sensitivity method: SIMULTANEOUS|staggered

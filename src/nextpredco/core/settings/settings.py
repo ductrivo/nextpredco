@@ -457,8 +457,46 @@ def _get_class_settings(
 
 
 def _get_options_from_file(name: str) -> pd.DataFrame:
-    setting_file = Path(__file__).parent / 'options' / f'{name}.csv'
-    return pd.read_csv(setting_file, na_filter=False)
+    opts_folder = Path(__file__).parent / 'options'
+    if name in ['kinsol', 'fast_newton', 'newton']:
+        df_1 = pd.read_csv(
+            opts_folder / 'casadi_root_finding.csv', na_filter=False
+        )
+
+    elif name in ['idas', 'cvodes']:
+        df_1 = pd.read_csv(
+            opts_folder / 'casadi_integrator.csv', na_filter=False
+        )
+
+    elif name in ['ipopt']:
+        df_1 = pd.read_csv(opts_folder / 'casadi_nlp.csv', na_filter=False)
+
+    df_2 = pd.read_csv(
+        Path(__file__).parent / 'options' / f'{name}.csv', na_filter=False
+    )
+
+    return merge_dfs(df_1, df_2)
+
+
+def merge_dfs(df_1: pd.DataFrame, df_2: pd.DataFrame) -> pd.DataFrame:
+    # Merge df_1 with df_2 on 'parameter' column
+    merged_df = df_1.merge(
+        df_2, on='parameter', suffixes=('', '_new'), how='left'
+    )
+
+    # Update the 'type', 'value', and 'description' columns
+    # in df_1 with those from df_2
+    for column in ['type', 'value', 'description']:
+        merged_df[column] = merged_df[f'{column}_new'].combine_first(
+            merged_df[column]
+        )
+
+    # Drop the '_new' columns
+    return merged_df.drop(
+        columns=[
+            f'{column}_new' for column in ['type', 'value', 'description']
+        ]
+    )
 
 
 def extract_settings_from_file(
