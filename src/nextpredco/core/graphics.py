@@ -10,17 +10,14 @@ SS_VARS_ORDER = 'xyzmoupq'
 
 def plot_transient(
     model: Model,
+    k0: int = 0,
     kf: int = -1,
-    ss_vars: str = 'yup',
-    plot_vars: list[str] | str = 'yup',
 ) -> None:
     kf_: int = model.k if kf == -1 else kf
-    t0 = model.t.get_val(0)[0, 0]
-    tf = model.t.get_val(kf_)[0, 0]
 
     # Compute the number of axes
     # TODO Remove duplicated physical vars
-    n_ax = len(plot_vars)
+    n_ax = len(model._settings.y_vars + model._settings.u_vars)
 
     fig: Figure
     ax: list[Axes]
@@ -28,12 +25,34 @@ def plot_transient(
 
     ax = [ax_] if n_ax == 1 else ax_
 
-    t = model.t.get_hist(0, model.k)[0, :]
-    x = model.get_var('c_a').est.get_hist(0, model.k)[0, :]
+    for i, name in enumerate(model._settings.y_vars + model._settings.u_vars):
+        _plot_physical_var(
+            ax=ax[i],
+            model=model,
+            name=name,
+            k0=k0,
+            kf=kf_,
+            source='est',
+        )
 
-    ax[0].plot(t, x, label='x_est')
-    ax[0].set_xlabel('Time [s]')
-    ax[0].set_ylabel(f'${model._settings.tex["c_a"]}$')
-    ax[0].set_xlim(t0, tf)
-    ax[0].set_ylim(x.min(), x.max())
+    ax[-1].set_xlabel('Time [s]')
     plt.show()
+
+
+def _plot_physical_var(
+    ax: Axes,
+    model: Model,
+    name: str,
+    k0: int,
+    kf: int,
+    source: str,
+) -> None:
+    t = model.t.get_hist(0, kf)[0, :]
+    val_ = model.get_var(name).est.get_hist(k0, kf)[0, :]
+    ax.plot(t, val_, label=f'{source}')
+    # ax.set_xlabel('Time [s]')
+    ax.set_ylabel(f'${model._settings.tex[name]}$')
+    ax.set_xlim(t.min(), t.max())
+    ax.set_ylim(val_.min(), val_.max())
+    ax.legend()
+    ax.grid(linestyle=':')

@@ -25,8 +25,8 @@ class ModelSettings:
     k: int = field(default=0)
     k_clock: int = field(default=0)
 
-    dt: float = field(default=1)
-    dt_clock: float = field(default=1)
+    dt: float = field(default=0.01)
+    dt_clock: float = field(default=0.01)
 
     t_max: float = field(default=10.0)
 
@@ -530,7 +530,7 @@ def extract_settings_from_file(
 
 def _df_to_nested_dict(df: pd.DataFrame) -> dict:
     nested_dict: dict = {}
-    tex_dict: dict = {}
+    tex_dict: dict[str, str] = {}
     for _, row in df.iterrows():
         if row['value'] != '':
             keys = row['parameter'].split('.', 3)
@@ -546,12 +546,14 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
 
             if 'model.info' in row['parameter']:
                 key = row['parameter'].replace('model.info.', '')
-                tex_dict[key] = row['tex']
+                tex_dict[key] = (
+                    row['tex'].replace('{', '{{').replace('}', '}}')
+                )
 
     if len(tex_dict) > 0:
         nested_dict['model']['tex'] = tex_dict
-    logger.debug(tex_dict)
-    input('Press Enter to continue...')
+    # logger.debug(tex_dict)
+    # input('Press Enter to continue...')
     return nested_dict
 
 

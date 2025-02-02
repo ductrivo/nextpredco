@@ -1,28 +1,28 @@
-parameter,type,value,role,description,latex
-c_a,float,0.8,x,,C_A
-c_b,float,0.5,x,,C_B
-t_r,float,134.14,x,,T_R
-t_k,float,130,x,,T_K
-f,float,0,u,,F
-q_dot,float,0,u,,\dot{Q}
-alpha,float,1,p,,\alpha
-beta,float,1,p,,\beta
-k0_ab,float,1287000000000.000,const,,
-k0_bc,float,1287000000000.000,const,,
-k0_ad,float,9043000000,const,,
-rgas,float,0.008,const,,
-ea_ab,float,9758.3,const,,
-ea_bc,float,9758.3,const,,
-ea_ad,float,8560,const,,
-hr_ab,float,4.2,const,,
-hr_bc,float,-11,const,,
-hr_ad,float,-41.85,const,,
-rou,float,0.934,const,,
-cp,float,3.01,const,,
-cp_k,float,2,const,,
-ar,float,0.215,const,,
-vr,float,10.01,const,,
-mk,float,5,const,,
-tin,float,130,const,,
-kw,float,4032,const,,
-c_a0,float,5.1,const,,
+parameter,type,value,role,description,tex,
+c_a,float,0.8,"x, y",,C_A,
+c_b,float,0.5,"x, y",,C_B,
+t_r,float,134.14,"x, y",,T_R,
+t_k,float,130,"x, y",,T_K,
+f,float,0,u,,F,
+q_dot,float,0,u,,\dot{Q},
+alpha,float,1,p,,\alpha,
+beta,float,1,p,,\beta,
+k0_ab,float,1287000000000.000,const,,k^0_{ab},
+k0_bc,float,1287000000000.000,const,,k^0_{bc},
+k0_ad,float,9043000000,const,,k^0_{ad},
+rgas,float,0.008,const,,R_\mathrm{gas},
+ea_ab,float,9758.3,const,,E^A_{ab},
+ea_bc,float,9758.3,const,,E^A_{bc},
+ea_ad,float,8560,const,,E^A_{ad},
+hr_ab,float,4.2,const,,H^R_{ab},
+hr_bc,float,-11,const,,H^R_{bc},
+hr_ad,float,-41.85,const,,H^R_{ad},
+rou,float,0.934,const,,\rho,
+cp,float,3.01,const,,c_p,
+cp_k,float,2,const,,C_{p,k}
+ar,float,0.215,const,,A_R,
+vr,float,10.01,const,,V_R,
+mk,float,5,const,,m_k,
+tin,float,130,const,,,
+kw,float,4032,const,,K_w,
+c_a0,float,5.1,const,,C_{A0},
