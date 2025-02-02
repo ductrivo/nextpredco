@@ -12,3 +12,10 @@ SS_VARS_SOURCES = ['goal', 'est', 'act', 'meas', 'filt']
 
 CONFIG_FOLDER = '_configs'
 SETTING_FOLDER = '_settings'
+
+PARAMETER = 'parameter'
+TYPE = 'type'
+VALUE = 'value'
+TEX = 'tex'
+DESCRIPTION = 'description'
+ROLE = 'role'

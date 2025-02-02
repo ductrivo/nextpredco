@@ -4,7 +4,7 @@ import casadi as ca
 from numpy.typing import ArrayLike, NDArray
 
 from nextpredco.core.custom_types import SymVar
-from nextpredco.core.settings.settings import IDASSettings
+from nextpredco.core.settings._settings import IDASSettings
 
 
 class Integrator(ABC):

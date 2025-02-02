@@ -6,14 +6,14 @@ from nextpredco.core.integrator import IDAS
 from nextpredco.core.model import Model
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.plant import Plant
-from nextpredco.core.settings.settings import (
+from nextpredco.core.settings import (
     IDASSettings,
     IPOPTSettings,
     KalmanSettings,
     ModelSettings,
     MPCSettings,
     PIDSettings,
-    extract_settings_from_file,
+    read_settings_csv,
 )
 
 
@@ -90,14 +90,14 @@ class Director:
         self.builder = builder
 
     def construct(self) -> ControlSystem:
-        settings = extract_settings_from_file()
+        settings = read_settings_csv()
         utils.print(settings)
-        self.builder.set_model(settings['model'], settings['model_integrator'])
+        self.builder.set_model(settings['model'], settings['model.integrator'])
 
         if 'controller' in settings:
             self.builder.set_controller(
                 settings['controller'],
-                settings['controller_optimizer'],
+                settings['controller.optimizer'],
             )
 
         if 'observer' in settings:

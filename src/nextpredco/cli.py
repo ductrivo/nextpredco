@@ -4,7 +4,7 @@ from pathlib import Path
 from nextpredco.core import tasks
 from nextpredco.core.control_system import ControlSystemBuilder, Director
 from nextpredco.core.logger import logger
-from nextpredco.core.settings.settings import create_settings_template
+from nextpredco.core.settings import create_settings_template
 from nextpredco.core.utils import print_dict
 from nextpredco.data import data
 

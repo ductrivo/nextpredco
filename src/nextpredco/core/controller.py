@@ -6,7 +6,7 @@ from numpy.typing import NDArray
 from nextpredco.core.descriptors import ReadOnlyInt
 from nextpredco.core.model import Model
 from nextpredco.core.optimizer import IPOPT
-from nextpredco.core.settings.settings import (
+from nextpredco.core.settings import (
     ControllerSettings,
     MPCSettings,
     PIDSettings,

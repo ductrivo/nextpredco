@@ -1,5 +1,4 @@
-import itertools
-from dataclasses import dataclass, field, fields
+from dataclasses import fields
 from pathlib import Path
 from types import UnionType
 
@@ -8,160 +7,24 @@ import pandas as pd
 from nextpredco.core import utils
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
+    DESCRIPTION,
+    PARAMETER,
+    ROLE,
     SETTING_FOLDER,
     SS_VARS_PRIMARY,
     SS_VARS_SECONDARY,
+    TEX,
+    TYPE,
+    VALUE,
 )
-from nextpredco.core.errors import SystemVariableError
 from nextpredco.core.logger import logger
-
-PARAMETER = 'parameter'
-TYPE = 'type'
-VALUE = 'value'
-TEX = 'tex'
-DESCRIPTION = 'description'
-ROLE = 'role'
-
-
-@dataclass
-class ModelSettings:
-    name: str = field(default='model')
-    is_continuous: bool = field(default=True)
-    is_linear: bool = field(default=False)
-
-    k: int = field(default=0)
-    k_clock: int = field(default=0)
-
-    dt: float = field(default=0.01)
-    dt_clock: float = field(default=0.01)
-
-    t_max: float = field(default=10.0)
-
-    sources: list[str] = field(
-        default_factory=lambda: [
-            'goal',
-            'est',
-            'act',
-            'meas',
-            'filt',
-            'meas_clock',
-            'filt_clock',
-        ],
-    )
-
-    info: dict[str, float] = field(default_factory=dict)
-    x_vars: list[str] = field(default_factory=list)
-    z_vars: list[str] = field(default_factory=list)
-    u_vars: list[str] = field(default_factory=list)
-    p_vars: list[str] = field(default_factory=list)
-    q_vars: list[str] = field(default_factory=list)
-    m_vars: list[str] = field(default_factory=list)
-    o_vars: list[str] = field(default_factory=list)
-    y_vars: list[str] = field(default_factory=list)
-    upq_vars: list[str] = field(default_factory=list)
-    const_vars: list[str] = field(default_factory=list)
-
-    tex: dict[str, str] = field(default_factory=dict)
-    descriptions: dict[str, str] = field(
-        default_factory=lambda: {
-            'is_continuous': (
-                'True if the model is continuous, '
-                'False if the model is discrete.'
-            ),
-            'is_linear': (
-                'True if the model is linear, '
-                'False if the model is non-linear.'
-            ),
-            'k': 'Current time step.',
-            'k_clock': 'Current time step for the clock.',
-            'dt': 'Discretization time step for the model.',
-            'dt_clock': 'Discretization time step for the clock.',
-            't_max': (
-                'Maximum operation time. '
-                'This will be used for memory allocation.'
-            ),
-            'sources': (
-                'List of sources for the model. '
-                'Possible values: goal, est, act, meas, filt, '
-                'meas_clock, filt_clock.'
-            ),
-            'info': 'Physical parameters of the model.',
-            'x_vars': 'Physical parameters declared as State variables.',
-            'z_vars': 'Physical parameters declared as Algebraic variables.',
-            'u_vars': (
-                'Physical parameters declared as Control Input variables.'
-            ),
-            'p_vars': 'Physical parameters declared as Disturbance variables.',
-            'q_vars': (
-                'Physical parameters declared as Known Varying variables.'
-            ),
-            'upq_vars': 'Physical parameters declared as u/p/q_vars.',
-            'y_vars': 'Physical parameters declared as Controlled variables.',
-            'm_vars': 'Physical parameters declared as Measured variables.',
-            'o_vars': 'Measured variables that are used in Observer.',
-        }
-    )
-
-
-@dataclass(kw_only=True)
-class ControllerSettings:
-    name: str = 'controller'
-    dt: float = field(default=-1)
-    descriptions: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class OptimizerSettings:
-    name: str = field(default='optimizer')
-    descriptions: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class IPOPTSettings(OptimizerSettings):
-    name: str = field(default='ipopt')
-    opts: dict[str, str | float | int] = field(default_factory=dict)
-
-
-@dataclass(kw_only=True)
-class PIDSettings(ControllerSettings):
-    kp: float = field(default=1.0)
-    ki: float = field(default=0.0)
-    kd: float = field(default=0.0)
-
-
-@dataclass(kw_only=True)
-class MPCSettings(ControllerSettings):
-    name: str = field(default='mpc')
-    n_pred: int = field(default=1)
-
-
-@dataclass(kw_only=True)
-class IntegratorSettings:
-    name: str = field(default='integrator')
-    descriptions: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass(kw_only=True)
-class IDASSettings(IntegratorSettings):
-    name: str = field(default='idas')
-    opts: dict[str, str | float | int] = field(default_factory=dict)
-
-
-@dataclass
-class ObserverSettings:
-    name: str = field(default='observer')
-    descriptions: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class KalmanSettings(ObserverSettings):
-    pass
-
-
-@dataclass
-class PlantSettings:
-    name: str = field(default='plant')
-    descriptions: dict[str, str] = field(default_factory=dict)
+from nextpredco.core.settings import (
+    IDASSettings,
+    IPOPTSettings,
+    ModelSettings,
+    MPCSettings,
+    PIDSettings,
+)
 
 
 class SettingsFactory:
@@ -217,7 +80,7 @@ def create_settings_template(project_dir: Path | None = None):
     df_model = _get_class_settings(prefix='model')
 
     # Update the model variables
-    df_model = _update_model_vars(df=df_model, df_vars=df_vars)
+    df_model = _merge_dfs(df1=df_model, df2=df_vars)
 
     # Create the DataFrames
     settings_dfs: list[pd.DataFrame] = [df_model, df_info]
@@ -331,22 +194,26 @@ def _read_model_info_csv(
     return pd.DataFrame(data), pd.DataFrame(df_vars)
 
 
-def _update_model_vars(
-    df: pd.DataFrame, df_vars: pd.DataFrame
-) -> pd.DataFrame:
-    # Merge df with df_vars on PARAMETER column
-    merged_df = df.merge(
-        df_vars,
-        on=PARAMETER,
-        suffixes=('', '_new'),
-        how='left',
+def _merge_dfs(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
+    # Merge df1 with df2 on PARAMETER column
+    merged_df = df1.merge(df2, on=PARAMETER, suffixes=('', '_new'), how='left')
+
+    # Update the TYPE, VALUE, and DESCRIPTION columns
+    # in df1 with those from df2
+    for column in df2.columns:
+        if column not in [PARAMETER, 'cpp_type']:
+            merged_df[column] = merged_df[f'{column}_new'].combine_first(
+                merged_df[column]
+            )
+
+    # Drop the '_new' columns
+    return merged_df.drop(
+        columns=[
+            f'{column}_new'
+            for column in df2.columns
+            if column not in [PARAMETER, 'cpp_type']
+        ]
     )
-
-    # Update the VALUE column in df with the 'value_new' column from df_vars
-    merged_df[VALUE] = merged_df['value_new'].combine_first(merged_df[VALUE])
-
-    # Drop the 'value_new' column
-    return merged_df.drop(columns=['value_new'])
 
 
 def _get_type(df: pd.DataFrame, parameter: str) -> str:
@@ -467,45 +334,26 @@ def _get_options_from_file(name: str) -> pd.DataFrame:
     # There are 3 groups: root finding, integrator, and NLP solvers.
     opts_folder = Path(__file__).parent / 'options'
     if name in ['kinsol', 'fast_newton', 'newton']:
-        df_1 = pd.read_csv(
+        df1 = pd.read_csv(
             opts_folder / 'casadi_root_finding.csv', na_filter=False
         )
 
     elif name in ['idas', 'cvodes']:
-        df_1 = pd.read_csv(
+        df1 = pd.read_csv(
             opts_folder / 'casadi_integrator.csv', na_filter=False
         )
 
     elif name in ['ipopt']:
-        df_1 = pd.read_csv(opts_folder / 'casadi_nlp.csv', na_filter=False)
+        df1 = pd.read_csv(opts_folder / 'casadi_nlp.csv', na_filter=False)
 
-    df_2 = pd.read_csv(
+    df2 = pd.read_csv(
         Path(__file__).parent / 'options' / f'{name}.csv', na_filter=False
     )
 
-    return merge_dfs(df_1, df_2)
+    return _merge_dfs(df1, df2)
 
 
-def merge_dfs(df_1: pd.DataFrame, df_2: pd.DataFrame) -> pd.DataFrame:
-    # Merge df_1 with df_2 on PARAMETER column
-    merged_df = df_1.merge(
-        df_2, on=PARAMETER, suffixes=('', '_new'), how='left'
-    )
-
-    # Update the TYPE, VALUE, and DESCRIPTION columns
-    # in df_1 with those from df_2
-    for column in [TYPE, VALUE, DESCRIPTION]:
-        merged_df[column] = merged_df[f'{column}_new'].combine_first(
-            merged_df[column]
-        )
-
-    # Drop the '_new' columns
-    return merged_df.drop(
-        columns=[f'{column}_new' for column in [TYPE, VALUE, DESCRIPTION]]
-    )
-
-
-def extract_settings_from_file(
+def read_settings_csv(
     file_name: str = 'settings_template.csv',
 ) -> dict:
     # Read the settings file
@@ -516,55 +364,16 @@ def extract_settings_from_file(
 
     # Convert the DataFrame to a nested dictionary
     # TODO: add type hints
-    df_dict = _df_to_nested_dict(df)
+    d = _df_to_nested_dict(df)
 
-    all_ = {}
-
-    # Get INTEGRATOR settings in model
-    if 'integrator' in df_dict['model']:
-        all_['model_integrator'] = SettingsFactory().create(
-            **df_dict['model']['integrator'],
-        )
-        df_dict['model'].pop('integrator')
-    else:
-        all_['model_integrator'] = None
-
-    # Get MODEL settings
-    all_['model'] = SettingsFactory().create(**df_dict['model'])
-
-    # Get CONTROLLER and OPTIMIZER settings
-    if 'controller' in df_dict:
-        if 'optimizer' in df_dict['controller']:
-            all_['controller_optimizer'] = SettingsFactory().create(
-                **df_dict['controller']['optimizer'],
-            )
-            df_dict['controller'].pop('optimizer')
-        else:
-            all_['controller_optimizer'] = None
-
-        # Get CONTROLLER settings
-        all_['controller'] = SettingsFactory().create(**df_dict['controller'])
-    else:
-        all_['controller'] = None
-
-    # Get OBSERVER and OPTIMIZER settings
-    if 'observer' in df_dict:
-        # Get OPTIMIZER settings
-        if 'optimizer' in df_dict['observer']:
-            all_['observer_optimizer'] = SettingsFactory().create(
-                **df_dict['observer']['optimizer'],
-            )
-            df_dict['observer'].pop('optimizer')
-        else:
-            all_['observer_optimizer'] = None
-
-        # Get OBSERVER settings
-        all_['observer'] = SettingsFactory().create(**df_dict['observer'])
-    else:
-        all_['observer'] = None
+    # Put nested settings into groups
+    all_: dict = {}
+    all_ |= _get_settings(dict_=d, parent='model', child='integrator')
+    all_ |= _get_settings(dict_=d, parent='controller', child='optimizer')
+    all_ |= _get_settings(dict_=d, parent='observer', child='optimizer')
 
     # Get PLANT settings
-    if 'plant' in df_dict:
+    if 'plant' in d:
         pass
     else:
         all_['plant'] = None
@@ -575,6 +384,7 @@ def extract_settings_from_file(
 def _df_to_nested_dict(df: pd.DataFrame) -> dict:
     nested_dict: dict = {}
     tex_dict: dict[str, str] = {}
+    child_dict: dict = {}
     for _, row in df.iterrows():
         if row[VALUE] != '':
             keys = row[PARAMETER].split('.', 3)
@@ -588,6 +398,9 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
                 d = d[key]
             d[keys[-1]] = value
 
+            # Since TEX is a column in the DataFrame, we need to
+            # convert it to a dictionary and add it to the nested dict
+            # TODO: Add latex for other settings
             if 'model.info' in row[PARAMETER]:
                 key = row[PARAMETER].replace('model.info.', '')
                 tex_dict[key] = row[TEX].replace('{', '{{').replace('}', '}}')
@@ -602,12 +415,16 @@ def _cast_value(value: str, value_type: str):
     value_type = value_type.lower()
     if value_type == 'str':
         return str(value)
+
     if value_type == 'bool':
         return value.lower() == 'true'
+
     if value_type == 'int':
         return int(value)
+
     if value_type == 'float':
         return float(value)
+
     if 'list' in value_type:
         value = (
             value.replace('[', '')
@@ -621,16 +438,37 @@ def _cast_value(value: str, value_type: str):
 
         if 'str' in value_type:
             value_out = [str(v) for v in values]
+
         elif 'bool' in value_type:
             value_out = [v.lower() == 'true' for v in values]
+
         elif 'int' in value_type:
             value_out = [int(v) for v in values]
+
         elif 'float' in value_type:
             value_out = [float(v) for v in values]
 
         if len(value_out) == 1 and value_out[0] == '':
             return []
+
         return value_out
 
     msg = f'Unsupported type: {value_type}'
     raise ValueError(msg)
+
+
+def _get_settings(dict_: dict, parent: str, child: str) -> dict:
+    d: dict = {}
+    if parent in dict_:
+        if child in dict_[parent]:
+            d[parent + '.' + child] = SettingsFactory.create(
+                **dict_[parent][child]
+            )
+            dict_[parent].pop(child)
+        else:
+            d[parent + '.' + child] = None
+        # Get MODEL settings
+        d[parent] = SettingsFactory().create(**dict_[parent])
+    else:
+        d[parent] = None
+    return d

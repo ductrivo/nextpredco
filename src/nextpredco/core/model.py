@@ -24,7 +24,7 @@ from nextpredco.core.descriptors import (
 )
 from nextpredco.core.integrator import IDAS
 from nextpredco.core.logger import logger
-from nextpredco.core.settings.settings import ModelSettings
+from nextpredco.core.settings._settings import ModelSettings
 
 try:
     from rich.pretty import pretty_repr

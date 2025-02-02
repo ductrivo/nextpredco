@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import override
 
-from nextpredco.core.settings.settings import IPOPTSettings
+from nextpredco.core.settings._settings import IPOPTSettings
 
 
 class Optimizer(ABC):
