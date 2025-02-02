@@ -1,0 +1,4 @@
+parameter,type,cpp_type,value,description
+abstol,float,OT_DOUBLE,,Stopping criterion tolerance on ||g||__inf)
+abstolStep,float,OT_DOUBLE,,Stopping criterion tolerance on step size
+max_iter,int,OT_INT,,Maximum number of Newton iterations to perform before returning.

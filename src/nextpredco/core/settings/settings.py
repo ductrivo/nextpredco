@@ -457,7 +457,7 @@ def _get_class_settings(
 
 
 def _get_options_from_file(name: str) -> pd.DataFrame:
-    setting_file = Path(__file__).parent / f'{name}_options.csv'
+    setting_file = Path(__file__).parent / 'options' / f'{name}.csv'
     return pd.read_csv(setting_file, na_filter=False)
 
 
@@ -552,8 +552,7 @@ def _df_to_nested_dict(df: pd.DataFrame) -> dict:
 
     if len(tex_dict) > 0:
         nested_dict['model']['tex'] = tex_dict
-    # logger.debug(tex_dict)
-    # input('Press Enter to continue...')
+
     return nested_dict
 
 

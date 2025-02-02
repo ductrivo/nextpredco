@@ -1,0 +1,6 @@
+parameter,type,cpp_type,value,description
+abstol,float,OT_DOUBLE,,Stopping criterion tolerance on max(|F|)
+abstolStep,float,OT_DOUBLE,,Stopping criterion tolerance on step size
+line_search,bool,OT_BOOL,,Enable line-search (default: true)
+max_iter,int,OT_INT,,Maximum number of Newton iterations to perform before returning.
+print_iteration,bool,OT_BOOL,,Print information about each iteration

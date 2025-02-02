@@ -17,7 +17,6 @@ var_integer_md,dict,OT_DICT,,Integer metadata (a dictionary with lists of intege
 var_numeric_md,dict,OT_DICT,,Numeric metadata (a dictionary with lists of reals) about variables to be passed to IPOPT
 var_string_md,dict,OT_DICT,,String metadata (a dictionary with lists of strings) about variables to be passed to IPOPT
 ipopt.tol,float,,,Desired convergence tolerance (relative).
-ipopt.print_level,int,,,"Output verbosity level. Sets the default verbosity level for console output. The larger this value the more detailed is the output. The valid range for this integer option is 0 ? print_level ? 12 and its default value is 5.
-"
+ipopt.print_level,int,,,Output verbosity level. Sets the default verbosity level for console output. The larger this value the more detailed is the output. The valid range for this integer option is 0 ? print_level ? 12 and its default value is 5.
 ipopt.output_file,str,,,File name of desired output file (leave unset for no file output).
 ipopt.file_print_level,int,,,"Verbosity level for output file. By default it is the same as ""print_level"". The valid range for this integer option is 0 ? file_print_level ? 12 and its default value is 5."

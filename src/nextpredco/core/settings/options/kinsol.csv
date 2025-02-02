@@ -1,0 +1,16 @@
+parameter,type,cpp_type,value,description
+abstol,float,OT_DOUBLE,,Stopping criterion tolerance
+disable_internal_warnings,bool,OT_BOOL,,Disable KINSOL internal warning messages
+exact_jacobian,bool,OT_BOOL,,Use exact Jacobian information
+f_scale,list[float],OT_DOUBLEVECTOR,,Equation scaling factors
+iterative_solver,str,OT_STRING,,gmres|bcgstab|tfqmr
+linear_solver_type,str,OT_STRING,,dense|banded|iterative|use r_defined
+lower_bandwidth,int,OT_INT,,Lower bandwidth for banded linear solvers
+max_iter,int,OT_INT,,Maximum number of Newton iterations. Putting 0 sets the default value of KinSol.
+max_krylov,int,OT_INT,,Maximum Krylov space dimension
+pretype,str,OT_STRING,,Type of preconditioner
+print_level,int,OT_INT,,Verbosity level
+strategy,str,OT_STRING,,Globalization strategy
+u_scale,list[float],OT_DOUBLEVECTOR,,Variable scaling factors
+upper_bandwidth,int,OT_INT,,Upper bandwidth for banded linear solvers
+use_preconditioner,bool,OT_BOOL,,Precondition an iterative solver
