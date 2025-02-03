@@ -1,5 +1,3 @@
-from collections.abc import Callable
-
 import casadi as ca
 
 from nextpredco.core.custom_types import Symbolic

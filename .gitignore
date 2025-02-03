@@ -180,3 +180,6 @@ scripts/try*
 
 out/*
 control/*
+
+# Ignore Zone.Identifier files
+*.csv:Zone.Identifier

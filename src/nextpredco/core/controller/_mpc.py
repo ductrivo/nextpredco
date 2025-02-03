@@ -1,5 +1,4 @@
-from abc import ABC, abstractmethod
-from copy import copy, deepcopy
+from copy import copy
 from typing import override
 
 import casadi as ca
@@ -7,60 +6,14 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
 from nextpredco.core import logger
+from nextpredco.core.controller import Controller
 from nextpredco.core.custom_types import Symbolic
 from nextpredco.core.descriptors import ReadOnlyInt
 from nextpredco.core.model import Model
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
-    ControllerSettings,
     MPCSettings,
-    PIDSettings,
 )
-
-
-class Controller(ABC):
-    def __init__(
-        self,
-        settings: ControllerSettings | MPCSettings | PIDSettings,
-        model: Model | None = None,
-        optimizer: IPOPT | None = None,
-    ):
-        self._model = model
-        self._optimizer = optimizer
-        self._settings = settings
-        self._settings.dt = model.dt if settings.dt == -1 else settings.dt
-
-        self._n_ctrl = round(self._settings.dt / self._model.dt)
-
-    @abstractmethod
-    def make_step(self) -> NDArray:
-        pass
-
-    @property
-    def model(self) -> Model | None:
-        return self._model
-
-    @property
-    def optimizer(self) -> IPOPT | None:
-        return self._optimizer
-
-
-class PID(Controller):
-    def __init__(
-        self,
-        pid_settings: PIDSettings,
-    ):
-        super().__init__(pid_settings)
-        self._kp = pid_settings.kp
-        self._ki = pid_settings.ki
-        self._kd = pid_settings.kd
-
-    @override
-    def make_step(self):
-        pass
-
-    def auto_tuning(self):
-        pass
 
 
 class MPC(Controller):
@@ -81,8 +34,8 @@ class MPC(Controller):
             'u': settings.weight_u[0],
             'du': settings.weight_du[0],
         }
-        x_pred, u_pred = self._make_prediction()
-        cost = self.compute_cost(x_pred, u_pred)
+
+        self._nlp_solver = self._make_prediction()
 
     def _make_prediction(self):
         return self._predict_single_shooting()
@@ -157,11 +110,19 @@ class MPC(Controller):
             return arr / goal - 1
         return arr - goal
 
-    def _predict_single_shooting(self) -> Symbolic:
+    def _predict_single_shooting(self) -> ca.Function:
         # TODO: check if algebraic equations are present
         x0 = Symbolic.sym('__x0', self._model.n('x'), 1)
         z0 = Symbolic.sym('__z0', 0)
-        u_pred = Symbolic.sym('__u_pred', self._model.n('u'), self._n_pred)
+        u_pred_vec: Symbolic = Symbolic.sym(
+            'u_pred', self._model.n('u') * self._n_pred
+        )
+
+        # Note: casadi use column-major order,
+        # numpy use row-major order
+        u_pred = u_pred_vec.reshape((self._model.n('u'), self._n_pred))
+
+        # Make prediction
         x_pred = self._integrate_euler(
             h=self._settings.dt,
             x0=x0,
@@ -170,7 +131,20 @@ class MPC(Controller):
             u_pred=u_pred,
         )
 
-        return x_pred, u_pred
+        # Compute cost
+        cost = self.compute_cost(x_pred, u_pred)
+
+        # Create nlp info
+        nlp = {
+            'x': u_pred_vec,
+            'f': cost,
+            'p': x0,
+        }
+
+        # Create nlp solver
+        nlp_solver: ca.Function = ca.nlpsol('nlp_solver', 'ipopt', nlp)
+
+        return nlp_solver
 
     def _integrate_euler(
         self,
