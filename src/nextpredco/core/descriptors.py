@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
-from nextpredco.core import logger
 from nextpredco.core.consts import SS_VARS_DB, SS_VARS_SECONDARY
 from nextpredco.core.custom_types import SourceType
 from nextpredco.core.errors import (
@@ -11,6 +10,7 @@ from nextpredco.core.errors import (
     NotAvailableAttributeError,
     ReadOnlyAttributeError,
 )
+from nextpredco.core.logger import logger
 
 
 class ReadOnly:

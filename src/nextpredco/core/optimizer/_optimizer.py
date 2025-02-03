@@ -15,12 +15,3 @@ class Optimizer(ABC):
     @abstractmethod
     def solve(self):
         pass
-
-
-class IPOPT(Optimizer):
-    def __init__(self, settings: IPOPTSettings):
-        super().__init__(settings)
-
-    @override
-    def solve(self):
-        pass

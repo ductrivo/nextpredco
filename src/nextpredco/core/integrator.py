@@ -3,8 +3,8 @@ from abc import ABC, abstractmethod
 import casadi as ca
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core import logger
 from nextpredco.core.custom_types import Symbolic
+from nextpredco.core.logger import logger
 from nextpredco.core.settings._settings import IDASSettings
 
 

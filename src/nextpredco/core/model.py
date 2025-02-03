@@ -8,7 +8,6 @@ import numpy as np
 from numpy.typing import NDArray
 from rich.pretty import pretty_repr
 
-from nextpredco.core import logger
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
     SS_VARS_DB,
@@ -24,6 +23,7 @@ from nextpredco.core.descriptors import (
     VariableSource,
 )
 from nextpredco.core.integrator import IDAS
+from nextpredco.core.logger import logger
 from nextpredco.core.settings._settings import ModelSettings
 
 try:
