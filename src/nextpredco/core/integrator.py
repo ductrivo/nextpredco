@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 import casadi as ca
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core.custom_types import SymVar
+from nextpredco.core import logger
+from nextpredco.core.custom_types import Symbolic
 from nextpredco.core.settings._settings import IDASSettings
 
 
@@ -11,7 +12,7 @@ class Integrator(ABC):
     @abstractmethod
     def integrate(
         self,
-        equations: dict[str, SymVar],
+        equations: dict[str, Symbolic],
         x0: NDArray,
         t_grid=ArrayLike,
         z0: NDArray | None = None,
@@ -26,7 +27,7 @@ class IDAS(Integrator):
 
     def integrate(
         self,
-        equations: dict[str, SymVar],
+        equations: dict[str, Symbolic],
         x0: NDArray,
         t_grid=ArrayLike,
         z0: NDArray | None = None,

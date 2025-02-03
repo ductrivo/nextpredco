@@ -1,5 +1,8 @@
 from dataclasses import dataclass, field
 
+import numpy as np
+from numpy.typing import NDArray
+
 
 @dataclass(kw_only=True)
 class ControllerSettings:
@@ -18,4 +21,10 @@ class PIDSettings(ControllerSettings):
 @dataclass(kw_only=True)
 class MPCSettings(ControllerSettings):
     name: str = field(default='mpc')
-    n_pred: int = field(default=1)
+    n_pred: int = field(default=3)
+    normalizing: bool = field(default=False)
+
+    weight_x: list[float] = field(default_factory=lambda: [1.0])
+    weight_y: list[float] = field(default_factory=lambda: [1.0])
+    weight_u: list[float] = field(default_factory=lambda: [1.0])
+    weight_du: list[float] = field(default_factory=lambda: [1.0])

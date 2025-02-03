@@ -8,11 +8,12 @@ import numpy as np
 from numpy.typing import NDArray
 from rich.pretty import pretty_repr
 
+from nextpredco.core import logger
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
     SS_VARS_DB,
 )
-from nextpredco.core.custom_types import SymVar
+from nextpredco.core.custom_types import Symbolic
 from nextpredco.core.descriptors import (
     PhysicalVariable,
     ReadOnlyFloat,
@@ -23,7 +24,6 @@ from nextpredco.core.descriptors import (
     VariableSource,
 )
 from nextpredco.core.integrator import IDAS
-from nextpredco.core.logger import logger
 from nextpredco.core.settings._settings import ModelSettings
 
 try:
@@ -35,6 +35,8 @@ except ImportError:
 
 
 from collections.abc import Callable
+
+from numpy.typing import ArrayLike
 
 
 @dataclass
@@ -130,6 +132,7 @@ class Model:
         self._data = self._create_data()
 
         # Load equations
+        # TODO: move to data
         self._transient_eqs, self._transient_funcs = self._create_equations()
 
     def _create_data(self) -> ModelData:
@@ -178,8 +181,8 @@ class Model:
 
     @staticmethod
     def _load_equations() -> tuple[
-        Callable[..., SymVar],
-        Callable[..., SymVar],
+        Callable[..., Symbolic],
+        Callable[..., Symbolic],
     ]:
         module_path = Path().cwd() / CONFIG_FOLDER / 'equations.py'
         spec = importlib.util.spec_from_file_location(
@@ -197,8 +200,8 @@ class Model:
 
     def _create_upq_dict(
         self,
-        upq: NDArray | SymVar,
-    ) -> dict[str, NDArray | SymVar]:
+        upq: NDArray | Symbolic,
+    ) -> dict[str, NDArray | Symbolic]:
         # TODO: Review the type hints
         upq_dict = {}
 
@@ -210,30 +213,19 @@ class Model:
 
     def _create_equations(
         self,
-    ) -> tuple[dict[str, SymVar], dict[str, ca.Function]]:
+    ) -> tuple[dict[str, Symbolic], dict[str, ca.Function]]:
         # Create symbolic variables
-        x = SymVar.sym('__x', self.n('x'))
-        z = SymVar.sym('__z', self.n('z'))
-        upq = SymVar.sym('__upq', self.n('upq'))
+        x = Symbolic.sym('__x', self.n('x'))
+        z = Symbolic.sym('__z', self.n('z'))
+        upq = Symbolic.sym('__upq', self.n('upq'))
 
         # Create dictionary with all symbolic variables
-        all_vars: dict[str, SymVar] = {}
-        for var_ in self._settings.x_vars:
-            all_vars[var_] = x[self._settings.x_vars.index(var_), 0]
-
-        for var_ in self._settings.z_vars:
-            all_vars[var_] = z[self._settings.z_vars.index(var_), 0]
-
-        for var_ in self._settings.upq_vars:
-            all_vars[var_] = upq[self._settings.upq_vars.index(var_), 0]
-
-        for var_ in self._settings.const_vars:
-            all_vars[var_] = self._settings.info[var_]
+        all_vars = self.get_all_vars(x=x, z=z, upq=upq)
 
         # Load equations from equations.py
         create_f, create_g = self._load_equations()
         f = create_f(**all_vars)
-        f_func = ca.Function('private_f', [x, z, upq], [f])
+        f_func = ca.Function('private_func_f', [x, z, upq], [f])
 
         transient_eqs = {
             'x': x,
@@ -248,11 +240,84 @@ class Model:
 
         if self.n('z') > 0:
             g = create_g(**all_vars)
-            g_func = ca.Function('private_g', [x, z, upq], [g])
+            g_func = ca.Function('private_func_g', [x, z, upq], [g])
             transient_eqs['alg'] = g
             transient_funcs['f'] = g_func
 
         return transient_eqs, transient_funcs
+
+    def get_y(self, x: NDArray | Symbolic):
+        y: ArrayLike = []
+        for var_ in self._settings.y_vars:
+            idx = self._settings.y_vars.index(var_)
+            y.append(x[idx, 0])
+
+        if isinstance(x, Symbolic):
+            return ca.vcat(y)
+
+        return np.array([[y]]).T
+
+    def get_du(self, u_arr: NDArray | Symbolic, u_prev: NDArray | Symbolic):
+        du: ArrayLike = [u_arr[:, 0] - u_prev]
+        for i in range(u_arr.shape[1] - 1):
+            du.append(u_arr[:, i + 1] - u_arr[:, i])
+
+        if isinstance(u_arr, Symbolic):
+            return ca.vcat(du)
+
+        return np.array([du]).T
+
+    def get_all_vars(
+        self, **ss_vars: Symbolic | NDArray
+    ) -> dict[str, Symbolic | NDArray]:
+        all_vars: dict[str, Symbolic | NDArray] = {}
+
+        for ss_var in ['x', 'z', 'u', 'p', 'q', 'upq', 'const']:
+            vars_list: list[str] = getattr(self._settings, f'{ss_var}_vars')
+            for var_ in vars_list:
+                if ss_var == 'const':
+                    all_vars[var_] = self._settings.info[var_]
+                elif ss_var in ss_vars:
+                    arr_ = ss_vars[ss_var]
+                    idx = vars_list.index(var_)
+                    all_vars[var_] = arr_[idx, 0]
+                else:
+                    arr_ = getattr(self, ss_var).est.val
+                    idx = vars_list.index(var_)
+                    all_vars[var_] = arr_[idx, 0]
+        return all_vars
+
+    def get_upq(
+        self,
+        u: Symbolic | NDArray | None = None,
+        p: Symbolic | NDArray | None = None,
+        q: Symbolic | NDArray | None = None,
+    ) -> Symbolic | NDArray:
+        arr_ = []
+        u = self.u.est.val if u is None else u
+        p = self.p.est.val if p is None else p
+        q = self.q.est.val if q is None else q
+
+        for var_ in self._settings.u_vars:
+            idx = self._settings.u_vars.index(var_)
+            arr_.append(u[idx, 0])
+
+        for var_ in self._settings.p_vars:
+            idx = self._settings.p_vars.index(var_)
+            arr_.append(p[idx, 0])
+
+        for var_ in self._settings.q_vars:
+            idx = self._settings.q_vars.index(var_)
+            arr_.append(q[idx, 0])
+
+        if (
+            isinstance(u, Symbolic)
+            or isinstance(p, Symbolic)
+            or isinstance(q, Symbolic)
+        ):
+            return ca.vcat(arr_)
+
+        return np.array([arr_]).T
 
     def _update_k_and_t(self) -> None:
         self._data.k += 1

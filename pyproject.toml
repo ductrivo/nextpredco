@@ -33,7 +33,6 @@ docs = []
 disable_error_code = ["import-untyped", 'union-attr']
 plugins = ['numpy.typing.mypy_plugin', 'npt_promote']
 
-
 [tool.ruff]
 # Set the maximum line length to 79.
 line-length = 79
@@ -48,7 +47,7 @@ ignore = [
   "W293",    # Blank line contains whitespace
   "PERF102", # incorrect dict iterator
   'PLC0414',
-  # "F401",    # Unused import
+  "F401",    # Unused import
   #   'B006', # Learn Python yo!
   #   'C408',  # Unnecessary dict/list call
   #   'COM819',  # Trailing commas is da bomb

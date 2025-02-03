@@ -1,12 +1,11 @@
 from pathlib import Path
 
-from nextpredco.core import utils
+from nextpredco.core import logger, utils
 from nextpredco.core.consts import (
     CONFIG_FOLDER,
 )
 from nextpredco.core.control_system import construct_control_system
 from nextpredco.core.graphics import plot_transient
-from nextpredco.core.logger import logger
 from nextpredco.core.model import Model
 from nextpredco.data.data import get_example_data
 
