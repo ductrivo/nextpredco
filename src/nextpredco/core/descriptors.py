@@ -91,7 +91,7 @@ class SystemVariableView:
         self._arr_full[self._idx_list, self._k, None] = val
 
     @property
-    def prev(self) -> NDArray:
+    def last(self) -> NDArray:
         if len(self._idx_list) == 0:
             return np.array([])
 

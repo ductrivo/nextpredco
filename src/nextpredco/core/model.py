@@ -257,8 +257,8 @@ class Model:
 
         return np.array([[y]]).T
 
-    def get_du(self, u_arr: NDArray | Symbolic, u_prev: NDArray | Symbolic):
-        du: ArrayLike = [u_arr[:, 0] - u_prev]
+    def get_du(self, u_arr: NDArray | Symbolic, u_last: NDArray | Symbolic):
+        du: ArrayLike = [u_arr[:, 0] - u_last]
         for i in range(u_arr.shape[1] - 1):
             du.append(u_arr[:, i + 1] - u_arr[:, i])
 
@@ -345,14 +345,14 @@ class Model:
     ) -> None:
         self._update_k_and_t()
 
-        self.u.est.val = u if u is not None else self.u.est.prev
-        self.p.est.val = p if p is not None else self.p.est.prev
-        self.q.est.val = q if q is not None else self.q.est.prev
+        self.u.est.val = u if u is not None else self.u.est.last
+        self.p.est.val = p if p is not None else self.p.est.last
+        self.q.est.val = q if q is not None else self.q.est.last
 
         x, z, _, _ = self._integrator.integrate(
             equations=self._transient_eqs,
-            x0=self.x.est.prev,
-            z0=self.z.est.prev,
+            x0=self.x.est.last,
+            z0=self.z.est.last,
             t_grid=self.t.get_hist(self.k - 1, self.k)[0, :],
             p0=self.upq.est.val,
         )

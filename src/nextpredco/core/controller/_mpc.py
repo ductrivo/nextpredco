@@ -5,10 +5,10 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core import logger
 from nextpredco.core.controller import Controller
 from nextpredco.core.custom_types import Symbolic
 from nextpredco.core.descriptors import ReadOnlyInt
+from nextpredco.core.logger import logger
 from nextpredco.core.model import Model
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
@@ -66,7 +66,7 @@ class MPC(Controller):
         costs['du'] = self._compute_cost_ingredients(
             arr=self._model.get_du(
                 u_arr=u_pred,
-                u_prev=self._model.u.goal.val,
+                u_last=self._model.u.goal.val,
             ),
             weight=self._weights['du'],
         )
