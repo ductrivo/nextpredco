@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-type ObserverSettings = KalmanSettings
+type ObserverSettings = KalmanSettings | StateFeedback
 
 
 @dataclass
@@ -10,5 +10,10 @@ class ObserverSettingsAbstract:
 
 
 @dataclass
+class StateFeedback(ObserverSettingsAbstract):
+    name: str = field(default='state_feedback')
+
+
+@dataclass
 class KalmanSettings(ObserverSettingsAbstract):
-    pass
+    name: str = field(default='kalman')

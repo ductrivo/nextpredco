@@ -30,9 +30,10 @@ from nextpredco.core.settings._integrator_settings import (
 )
 from nextpredco.core.settings._model_settings import ModelSettings
 from nextpredco.core.settings._observer_settings import (
-    KalmanSettings as KalmanSettings,
+    KalmanSettings,
+    ObserverSettings,
+    StateFeedback,
 )
-from nextpredco.core.settings._observer_settings import ObserverSettings
 from nextpredco.core.settings._optimizer_settings import (
     IPOPTSettings,
     OptimizerSettings,
@@ -75,6 +76,9 @@ class SettingsFactory:
             return MPCSettings(**settings)
 
         # Observers
+        if name == 'state_feedback':
+            return StateFeedback(**settings)
+
         if name == 'kalman':
             return KalmanSettings(**settings)
         msg = f'Unknown settings type: {name}'
@@ -116,7 +120,8 @@ def create_settings_template(project_dir: Path | None = None):
 
     # Read the configuration file
     df_configs = _read_config_csv(config_file)
-
+    logger.debug(df_configs)
+    input('Press Enter to continue...')
     # Create the INTEGRATOR settings DataFrame
     if _get_value(df=df_configs, parameter='model.is_continuous'):
         settings_dfs.append(
@@ -136,6 +141,21 @@ def create_settings_template(project_dir: Path | None = None):
     # Create the OPTIMIZER settings DataFrame
     settings_dfs.append(
         _get_class_settings(df=df_configs, prefix='controller.optimizer'),
+    )
+
+    # Create the CONTROLLER settings DataFrame
+    settings_dfs.append(
+        _get_class_settings(df=df_configs, prefix='observer'),
+    )
+
+    # Create the INTEGRATOR settings DataFrame
+    settings_dfs.append(
+        _get_class_settings(df=df_configs, prefix='observer.integrator'),
+    )
+
+    # Create the OPTIMIZER settings DataFrame
+    settings_dfs.append(
+        _get_class_settings(df=df_configs, prefix='observer.optimizer'),
     )
 
     # Concatenate the DataFrames
