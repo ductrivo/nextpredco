@@ -1,39 +1,92 @@
-from abc import ABC, abstractmethod
+from copy import copy
+from typing import override
 
 import casadi as ca
-from numpy.typing import ArrayLike, NDArray
+import numpy as np
+from numpy.typing import NDArray
 
 from nextpredco.core import Symbolic
-from nextpredco.core._logger import logger
-from nextpredco.core.integrator._integrator import Integrator
+from nextpredco.core.errors import StepSizeInitializationError
+from nextpredco.core.integrator._integrator import IntegratorABC
 from nextpredco.core.settings import IDASSettings
 
 
-class IDAS(Integrator):
-    def __init__(self, settings: IDASSettings):
-        self.opts = settings.opts
-
-    def integrate(
+class IDAS(IntegratorABC):
+    def __init__(
         self,
+        settings: IDASSettings,
         equations: dict[str, Symbolic],
-        x0: NDArray,
-        t_grid=ArrayLike,
-        z0: NDArray | None = None,
-        p0: NDArray | None = None,
-    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
-        # TODO: Consider avoid recompiling the integrator every time
-        integrator = ca.integrator(
+        h: float | None = None,
+    ):
+        super().__init__(settings, equations)
+
+        if h is not None:
+            self._settings.h = h
+
+        if self._settings.h is None:
+            raise StepSizeInitializationError()
+
+        self._integrator = self._create_integrator()
+
+    @override
+    def _create_integrator(
+        self,
+        t_grid: list[float | int] | NDArray | None = None,
+    ) -> ca.Function:
+        if t_grid is None:
+            return ca.integrator(
+                'integrator0',
+                'idas',
+                self._equations,
+                0,
+                self._settings.h,
+                self._settings.opts,
+            )
+        return ca.integrator(
             'integrator',
             'idas',
-            equations,
+            self._equations,
             t_grid[0],
             t_grid,
-            self.opts,
+            self._settings.opts,
         )
 
-        sol = integrator(x0=x0, z0=z0, p=p0)
-        x_arr = sol['xf'].full()
-        z_arr = sol['zf'].full()
+    @override
+    def integrate(
+        self,
+        x0: Symbolic | NDArray,
+        z0: Symbolic | NDArray,
+        upq_arr: Symbolic | NDArray,
+        t_grid: list[float | int] | NDArray | None = None,
+    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        if t_grid is None or (
+            len(t_grid) == 2 and t_grid[1] - t_grid[0] == self._settings.h
+        ):
+            integrator = self._integrator
+        else:
+            integrator = self._create_integrator()
+
+        if (
+            isinstance(x0, Symbolic)
+            or isinstance(z0, Symbolic)
+            or isinstance(upq_arr, Symbolic)
+        ):
+            raise NotImplementedError('Symbolic integration is not supported.')
+
+        x, z = x0, z0
+        x_list: list[NDArray] = []
+        z_list: list[NDArray] = []
+
+        for k in range(upq_arr.shape[1]):
+            upq = upq_arr[:, k]
+            sol = integrator(x0=x0, z0=z0, p=upq)
+            x = sol['xf'].full()
+            z = sol['zf'].full()
+            x_list.append(copy(x))
+            z_list.append(copy(z))
+
+        x_arr = np.hstack(x_list)
+        z_arr = np.hstack(z_list)
 
         # Get final state vector
         x = x_arr[:, -1, None]

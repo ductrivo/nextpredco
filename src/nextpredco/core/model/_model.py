@@ -1,11 +1,11 @@
 import importlib.util
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
 
 import casadi as ca
 import numpy as np
-from numpy.typing import NDArray
+from numpy.typing import ArrayLike, NDArray
 from rich.pretty import pretty_repr
 
 from nextpredco.core import (
@@ -14,7 +14,7 @@ from nextpredco.core import (
     Symbolic,
     logger,
 )
-from nextpredco.core.integrator import IDAS
+from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
 from nextpredco.core.model._descriptors import (
     PhysicalVariable,
     ReadOnlyFloat,
@@ -24,19 +24,7 @@ from nextpredco.core.model._descriptors import (
     TimeVariable,
     VariableSource,
 )
-from nextpredco.core.settings._settings import ModelSettings
-
-try:
-    from rich.pretty import pretty_repr
-except ImportError:
-
-    def pretty_repr(obj: Any) -> Any:  # type: ignore[misc]
-        return obj
-
-
-from collections.abc import Callable
-
-from numpy.typing import ArrayLike
+from nextpredco.core.settings import ModelSettings
 
 
 @dataclass
@@ -119,21 +107,28 @@ class Model:
         self,
         # model_data_path: Path = DATA_DIR / "ex_chen1998.csv",
         settings: ModelSettings | None = None,
-        integrator: IDAS | None = None,
+        integrator_settings: IntegratorSettings | None = None,
     ) -> None:
         # Load settings
         self._settings = settings
         logger.debug('Model settings:\n%s', pretty_repr(self._settings))
-
-        # Load integrator
-        self._integrator = integrator
 
         # Load data
         self._data = self._create_data()
 
         # Load equations
         # TODO: move to data
-        self._transient_eqs, self._transient_funcs = self._create_equations()
+        self._equations = self._create_equations()
+
+        # Load integrator
+        if integrator_settings is not None:
+            self._integrator = IntegratorFactory.create(
+                settings=integrator_settings,
+                equations=self._equations,
+                h=self._settings.dt,
+            )
+        else:
+            self._integrator = None
 
     def _create_data(self) -> ModelData:
         # Create data holder
@@ -213,7 +208,7 @@ class Model:
 
     def _create_equations(
         self,
-    ) -> tuple[dict[str, Symbolic], dict[str, ca.Function]]:
+    ) -> dict[str, Symbolic]:
         # Create symbolic variables
         x = Symbolic.sym('__x', self.n('x'))
         z = Symbolic.sym('__z', self.n('z'))
@@ -225,7 +220,7 @@ class Model:
         # Load equations from equations.py
         create_f, create_g = self._load_equations()
         f = create_f(**all_vars)
-        f_func = ca.Function('private_func_f', [x, z, upq], [f])
+        # f_func = ca.Function('private_func_f', [x, z, upq], [f])
 
         transient_eqs = {
             'x': x,
@@ -234,17 +229,17 @@ class Model:
             'ode': f,
         }
 
-        transient_funcs = {
-            'f': f_func,
-        }
+        # transient_funcs = {
+        #     'f': f_func,
+        # }
 
         if self.n('z') > 0:
             g = create_g(**all_vars)
             g_func = ca.Function('private_func_g', [x, z, upq], [g])
             transient_eqs['alg'] = g
-            transient_funcs['f'] = g_func
+            # transient_funcs['f'] = g_func
 
-        return transient_eqs, transient_funcs
+        return transient_eqs
 
     def get_y(self, x: NDArray | Symbolic):
         y: ArrayLike = []
@@ -349,29 +344,27 @@ class Model:
         self.p.est.val = p if p is not None else self.p.est.last
         self.q.est.val = q if q is not None else self.q.est.last
 
-        x, z, _, _ = self._integrator.integrate(
-            equations=self._transient_eqs,
+        x_next, z_next, _, _ = self._integrator.integrate(
+            t_grid=self.t.get_hist(self.k - 1, self.k)[0, :],
             x0=self.x.est.last,
             z0=self.z.est.last,
-            t_grid=self.t.get_hist(self.k - 1, self.k)[0, :],
-            p0=self.upq.est.val,
+            upq_arr=self.upq.est.val,
         )
 
-        self.x.est.val = x
-        self.z.est.val = z
+        self.x.est.val = x_next
+        self.z.est.val = z_next
 
     def compute_xz(
         self,
         x0: NDArray,
         z0: NDArray,
-        upq: NDArray,
+        upq_arr: NDArray,
         t_grid: NDArray,
     ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
         x, z, x_arr, z_arr = self._integrator.integrate(
-            equations=self._transient_eqs,
             x0=x0,
             z0=z0,
-            p0=upq,
+            upq_arr=upq_arr,
             t_grid=t_grid,
         )
         return x, z, x_arr, z_arr

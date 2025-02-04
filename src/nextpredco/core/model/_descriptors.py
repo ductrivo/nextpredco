@@ -73,7 +73,7 @@ class SystemVariableView:
     @property
     def val(self) -> NDArray:
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, self._k, None]
@@ -91,7 +91,7 @@ class SystemVariableView:
     @property
     def last(self) -> NDArray:
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
 
         k = self._k - 1 if self._k > 0 else 0
 
@@ -103,7 +103,7 @@ class SystemVariableView:
     @property
     def hist(self) -> NDArray:
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, : (self._k + 1)]
@@ -113,12 +113,12 @@ class SystemVariableView:
     @property
     def full(self) -> NDArray:
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
         return self._arr_full
 
     def get_val(self, k: int) -> NDArray:
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
         return self._arr_full[self._idx_list, k, None]
 
     def set_val(self, k: int, val: NDArray | float) -> None:
@@ -139,7 +139,7 @@ class SystemVariableView:
             raise InvalidK0ValueError
 
         if len(self._idx_list) == 0:
-            return np.array([])
+            return np.array([[]]).T
 
         if len(self._idx_list) == self._arr_full.shape[0]:
             return self._arr_full[:, k0 : (k1 + 1)]

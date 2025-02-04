@@ -18,25 +18,54 @@ from nextpredco.core import (
     logger,
     tools,
 )
-from nextpredco.core.settings import (
-    IDASSettings,
-    IPOPTSettings,
-    ModelSettings,
+from nextpredco.core.settings._controller_settings import (
+    ControllerSettings,
     MPCSettings,
     PIDSettings,
+)
+from nextpredco.core.settings._integrator_settings import (
+    IDASSettings,
+    IntegratorSettings,
+    TaylorSettings,
+)
+from nextpredco.core.settings._model_settings import ModelSettings
+from nextpredco.core.settings._observer_settings import (
+    KalmanSettings as KalmanSettings,
+)
+from nextpredco.core.settings._observer_settings import ObserverSettings
+from nextpredco.core.settings._optimizer_settings import (
+    IPOPTSettings,
+    OptimizerSettings,
+)
+from nextpredco.core.settings._plant_settings import PlantSettings
+
+type Settings = (
+    ModelSettings
+    | ControllerSettings
+    | IntegratorSettings
+    | OptimizerSettings
+    | PlantSettings
+    | ObserverSettings
 )
 
 
 class SettingsFactory:
     @staticmethod
-    def create(name, **settings):
+    def create(name, **settings) -> Settings:
         # Model
         if name == 'model':
             return ModelSettings(**settings)
 
-        # Model's integrator
+        # Integrators
+        if name == 'taylor':
+            return TaylorSettings(**settings)
+
         if name == 'idas':
             return IDASSettings(**settings)
+
+        # Optimizers
+        if name == 'ipopt':
+            return IPOPTSettings(**settings)
 
         # Controllers
         if name == 'pid':
@@ -45,9 +74,9 @@ class SettingsFactory:
         if name == 'mpc':
             return MPCSettings(**settings)
 
-        if name == 'ipopt':
-            return IPOPTSettings(**settings)
-
+        # Observers
+        if name == 'kalman':
+            return KalmanSettings(**settings)
         msg = f'Unknown settings type: {name}'
         raise ValueError(msg)
 
@@ -97,6 +126,11 @@ def create_settings_template(project_dir: Path | None = None):
     # Create the CONTROLLER settings DataFrame
     settings_dfs.append(
         _get_class_settings(df=df_configs, prefix='controller'),
+    )
+
+    # Create the INTEGRATOR settings DataFrame
+    settings_dfs.append(
+        _get_class_settings(df=df_configs, prefix='controller.integrator'),
     )
 
     # Create the OPTIMIZER settings DataFrame
@@ -231,6 +265,7 @@ def _get_class_settings(
 ) -> pd.DataFrame:
     if df is None and prefix == 'model':
         settings = SettingsFactory.create(name='model')
+
     elif df is not None:
         try:
             settings = SettingsFactory.create(
@@ -268,11 +303,7 @@ def _get_class_settings(
         # Add the options if available
         if name == 'opts':
             # Get options from file
-            df_opts = _get_options_from_file(settings.name)
-            df_opts = df_opts[[PARAMETER, TYPE, VALUE, DESCRIPTION]]
-            df_opts.loc[:, PARAMETER] = df_opts[PARAMETER].apply(
-                lambda x: f'{prefix}.opts.{x}',
-            )
+            df_opts = _get_options_from_file(name=settings.name, prefix=prefix)
 
         # Add the settings to the dictionary
         elif (
@@ -327,12 +358,17 @@ def _get_class_settings(
     return pd.concat([df, df_opts], ignore_index=True)
 
 
-def _get_options_from_file(name: str) -> pd.DataFrame:
+def _get_options_from_file(name: str, prefix: str = '') -> pd.DataFrame:
     # CasADi has some common options used in their interfaces
     # to 3rd party solvers. Thus, we need to merge these options
     # with the specific options of the solver.
     # There are 3 groups: root finding, integrator, and NLP solvers.
     opts_folder = Path(__file__).parent / 'options'
+    opts_path = Path(__file__).parent / 'options' / f'{name}.csv'
+
+    if not opts_path.exists():
+        return pd.DataFrame()
+
     if name in ['kinsol', 'fast_newton', 'newton']:
         df1 = pd.read_csv(
             opts_folder / 'casadi_root_finding.csv', na_filter=False
@@ -346,11 +382,15 @@ def _get_options_from_file(name: str) -> pd.DataFrame:
     elif name in ['ipopt']:
         df1 = pd.read_csv(opts_folder / 'casadi_nlp.csv', na_filter=False)
 
-    df2 = pd.read_csv(
-        Path(__file__).parent / 'options' / f'{name}.csv', na_filter=False
-    )
+    df2 = pd.read_csv(opts_path, na_filter=False)
 
-    return _merge_dfs(df1, df2)
+    df_opts = _merge_dfs(df1, df2)
+    df_opts = df_opts[df_opts['frequently_used'] == 'x']
+    df_opts = df_opts[[PARAMETER, TYPE, VALUE, DESCRIPTION]]
+    df_opts.loc[:, PARAMETER] = df_opts[PARAMETER].apply(
+        lambda x: f'{prefix}.opts.{x}',
+    )
+    return df_opts
 
 
 def read_settings_csv(
@@ -368,9 +408,13 @@ def read_settings_csv(
 
     # Put nested settings into groups
     all_: dict = {}
-    all_ |= _get_settings(dict_=d, parent='model', child='integrator')
-    all_ |= _get_settings(dict_=d, parent='controller', child='optimizer')
-    all_ |= _get_settings(dict_=d, parent='observer', child='optimizer')
+    all_ |= _get_settings(dict_=d, parent='model', children=['integrator'])
+    all_ |= _get_settings(
+        dict_=d, parent='controller', children=['optimizer', 'integrator']
+    )
+    all_ |= _get_settings(
+        dict_=d, parent='observer', children=['optimizer', 'integrator']
+    )
 
     # Get PLANT settings
     if 'plant' in d:
@@ -457,16 +501,18 @@ def _cast_value(value: str, value_type: str):
     raise ValueError(msg)
 
 
-def _get_settings(dict_: dict, parent: str, child: str) -> dict:
+def _get_settings(dict_: dict, parent: str, children: list[str]) -> dict:
     d: dict = {}
     if parent in dict_:
-        if child in dict_[parent]:
-            d[parent + '.' + child] = SettingsFactory.create(
-                **dict_[parent][child]
-            )
-            dict_[parent].pop(child)
-        else:
-            d[parent + '.' + child] = None
+        for child in children:
+            if child in dict_[parent]:
+                d[parent + '.' + child] = SettingsFactory.create(
+                    **dict_[parent][child]
+                )
+                dict_[parent].pop(child)
+            else:
+                d[parent + '.' + child] = None
+
         # Get MODEL settings
         d[parent] = SettingsFactory().create(**dict_[parent])
     else:

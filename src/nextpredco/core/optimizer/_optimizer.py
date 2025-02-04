@@ -1,15 +1,14 @@
 from abc import ABC, abstractmethod
-from typing import override
 
-from nextpredco.core.settings import IPOPTSettings
+from nextpredco.core.settings import OptimizerSettings
 
 
-class Optimizer(ABC):
+class OptimizerABC(ABC):
     @property
-    def settings(self) -> IPOPTSettings:
+    def settings(self) -> OptimizerSettings:
         return self._settings
 
-    def __init__(self, settings: IPOPTSettings):
+    def __init__(self, settings: OptimizerSettings):
         self._settings = settings
 
     @abstractmethod

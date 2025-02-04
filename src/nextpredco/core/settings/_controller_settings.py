@@ -1,25 +1,24 @@
 from dataclasses import dataclass, field
 
-import numpy as np
-from numpy.typing import NDArray
+type ControllerSettings = PIDSettings | MPCSettings
 
 
 @dataclass(kw_only=True)
-class ControllerSettings:
+class ControllerSettingsAbstract:
     name: str = 'controller'
     dt: float = field(default=-1)
     descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(kw_only=True)
-class PIDSettings(ControllerSettings):
+class PIDSettings(ControllerSettingsAbstract):
     kp: float = field(default=1.0)
     ki: float = field(default=0.0)
     kd: float = field(default=0.0)
 
 
 @dataclass(kw_only=True)
-class MPCSettings(ControllerSettings):
+class MPCSettings(ControllerSettingsAbstract):
     name: str = field(default='mpc')
     n_pred: int = field(default=3)
     normalizing: bool = field(default=False)

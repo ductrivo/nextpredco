@@ -1,4 +1,3 @@
-from nextpredco.core.model._descriptors import ReadOnlyInt
 from nextpredco.core.model._descriptors import (
     SystemVariableView as SystemVariableView,
 )

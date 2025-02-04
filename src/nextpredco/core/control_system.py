@@ -1,17 +1,14 @@
 from numpy.typing import NDArray
 
 from nextpredco.core import tools
-from nextpredco.core.controller import MPC, PID
-from nextpredco.core.integrator import IDAS
+from nextpredco.core.controller import ControllerFactory
 from nextpredco.core.model import Model, Plant
-from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
-    IDASSettings,
-    IPOPTSettings,
-    KalmanSettings,
+    ControllerSettings,
+    IntegratorSettings,
     ModelSettings,
-    MPCSettings,
-    PIDSettings,
+    ObserverSettings,
+    OptimizerSettings,
     read_settings_csv,
 )
 
@@ -40,40 +37,52 @@ class ControlSystemBuilder:
     def set_model(
         self,
         settings: ModelSettings,
-        integrator_settings: IDASSettings | None,
+        integrator_settings: IntegratorSettings | None = None,
     ) -> 'ControlSystemBuilder':
         # Create integrator if settings are provided
-        if integrator_settings is not None:
-            integrator = IDAS(integrator_settings)
-        else:
-            integrator = None
+        # if integrator_settings is not None:
+        #     integrator = IDAS(integrator_settings)
+        # else:
+        #     integrator = None
 
         # Create model
-        self.system.model = Model(settings, integrator)
+        self.system.model = Model(settings, integrator_settings)
         return self
 
     def set_controller(
         self,
-        settings: PIDSettings | MPCSettings,
-        optimizer_settings: IPOPTSettings | None = None,
+        settings: ControllerSettings,
+        optimizer_settings: OptimizerSettings | None = None,
+        integrator_settings: IntegratorSettings | None = None,
     ) -> 'ControlSystemBuilder':
         # Create optimizer if settings are provided
-        if optimizer_settings is not None:
-            optimizer = IPOPT(optimizer_settings)
+        # if optimizer_settings is not None:
+        #     optimizer = IPOPT(optimizer_settings)
 
         # Create controller based on the setting type
-        if isinstance(settings, PIDSettings):
-            self.system.controller = PID(settings)
+        self.system.controller = ControllerFactory.create(
+            settings=settings,
+            model=self.system.model,
+            optimizer_settings=optimizer_settings,
+            integrator_settings=integrator_settings,
+        )
+        # if isinstance(settings, PIDSettings):
+        #     self.system.controller = PID(settings)
 
-        elif isinstance(settings, MPCSettings):
-            self.system.controller = MPC(
-                settings=settings,
-                model=self.system.model,
-                optimizer=optimizer,
-            )
+        # elif isinstance(settings, MPCSettings):
+        #     self.system.controller = MPC(
+        #         settings=settings,
+        #         model=self.system.model,
+        #         optimizer=optimizer,
+        #     )
         return self
 
-    def set_observer(self, settings: KalmanSettings) -> 'ControlSystemBuilder':
+    def set_observer(
+        self,
+        settings: ObserverSettings,
+        optimizer_settings: OptimizerSettings | None = None,
+        integrator_settings: IntegratorSettings | None = None,
+    ) -> 'ControlSystemBuilder':
         return self
 
     def set_plant(self, plant: Plant) -> 'ControlSystemBuilder':
@@ -95,12 +104,17 @@ class Director:
 
         if 'controller' in settings:
             self.builder.set_controller(
-                settings['controller'],
-                settings['controller.optimizer'],
+                settings=settings['controller'],
+                optimizer_settings=settings['controller.optimizer'],
+                integrator_settings=settings['controller.integrator'],
             )
 
         if 'observer' in settings:
-            self.builder.set_observer(settings['observer'])
+            self.builder.set_observer(
+                settings=settings['observer'],
+                optimizer_settings=settings['observer.optimizer'],
+                integrator_settings=settings['observer.integrator'],
+            )
 
         if 'plant' in settings:
             self.builder.set_plant(settings['plant'])

@@ -7,25 +7,31 @@ from numpy.typing import ArrayLike, NDArray
 
 from nextpredco.core import Symbolic
 from nextpredco.core._logger import logger
-from nextpredco.core.controller import Controller
+from nextpredco.core.controller import ControllerABC
 from nextpredco.core.model import Model
 from nextpredco.core.model._descriptors import ReadOnlyInt
-from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
+    IntegratorSettings,
     MPCSettings,
+    OptimizerSettings,
 )
 
 
-class MPC(Controller):
+class MPC(ControllerABC):
     n_pred = ReadOnlyInt()
 
     def __init__(
         self,
         settings: MPCSettings,
         model: Model,
-        optimizer: IPOPT | None,
+        optimizer_settings: OptimizerSettings | None = None,
+        integrator_settings: IntegratorSettings | None = None,
     ):
-        super().__init__(settings, model, optimizer)
+        super().__init__(
+            settings, model, optimizer_settings, integrator_settings
+        )
+        # To ensure that auto completion only shows MPCSettings attributes
+        self._settings: MPCSettings
 
         self._n_pred = settings.n_pred
         self._weights = {
@@ -35,13 +41,26 @@ class MPC(Controller):
             'du': settings.weight_du[0],
         }
 
-        self._nlp_solver = self._make_prediction()
+        self._nlp_solver = self._create_optimization_problem()
+        self._nlp_solver(
+            x0=np.repeat(self._model.u.goal.val, self._n_pred, axis=0),
+            p=np.vstack(
+                [
+                    self._model.x.est.val,
+                    self._model.z.est.val,
+                    self._model.p.est.val,
+                    self._model.q.est.val,
+                ]
+            ),
+        )
 
-    def _make_prediction(self):
+    def _create_optimization_problem(self):
         return self._predict_single_shooting()
 
     def compute_cost(
-        self, x_pred: Symbolic | NDArray, u_pred: Symbolic | NDArray
+        self,
+        x_pred: Symbolic | NDArray,
+        u_pred: Symbolic | NDArray,
     ) -> Symbolic | NDArray:
         # TODO: Normalize the errors
         costs = {}
@@ -114,21 +133,29 @@ class MPC(Controller):
         # TODO: check if algebraic equations are present
         x0 = Symbolic.sym('__x0', self._model.n('x'), 1)
         z0 = Symbolic.sym('__z0', 0)
+        p0 = Symbolic.sym('__p0', self._model.n('p'), 1)
+        q0 = Symbolic.sym('__q0', self._model.n('q'), 1)
+
         u_pred_vec: Symbolic = Symbolic.sym(
-            'u_pred', self._model.n('u') * self._n_pred
+            'u_pred', self._model.n('u') * self._n_pred, 1
         )
 
         # Note: casadi use column-major order,
         # numpy use row-major order
         u_pred = u_pred_vec.reshape((self._model.n('u'), self._n_pred))
-
         # Make prediction
-        x_pred = self._integrate_euler(
-            h=self._settings.dt,
+
+        upq_arr_ = []
+        for k in range(self._n_pred):
+            upq_ = self._model.get_upq(u=u_pred[:, k], p=p0, q=q0)
+            upq_arr_.append(upq_)
+
+        upq_arr = ca.hcat(upq_arr_)
+
+        _, _, x_pred, _ = self._integrator.integrate(
             x0=x0,
             z0=z0,
-            f_func=self._model._transient_funcs['f'],
-            u_pred=u_pred,
+            upq_arr=upq_arr,
         )
 
         # Compute cost
@@ -138,12 +165,11 @@ class MPC(Controller):
         nlp = {
             'x': u_pred_vec,
             'f': cost,
-            'p': x0,
+            'p': ca.vcat([x0, z0, p0, q0]),
         }
 
         # Create nlp solver
         nlp_solver: ca.Function = ca.nlpsol('nlp_solver', 'ipopt', nlp)
-
         return nlp_solver
 
     def _integrate_euler(
@@ -162,10 +188,6 @@ class MPC(Controller):
             x_pred.append(copy(x))
 
         return ca.hcat(x_pred)
-
-    # def _predict_multiple_shooting(self) -> Symbolic:
-    #     h = self._settings.dt
-    #     funcs
 
     @override
     def make_step(self):

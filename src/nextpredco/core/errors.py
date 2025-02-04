@@ -1,6 +1,11 @@
 from numpy.typing import NDArray
 
 
+class StepSizeInitializationError(Exception):
+    def __init__(self):
+        super().__init__('Step size h must be initialized.')
+
+
 class ReadOnlyAttributeError(AttributeError):
     """Exception raised when trying to set a read-only attribute."""
 

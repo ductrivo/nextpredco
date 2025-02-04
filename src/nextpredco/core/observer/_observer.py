@@ -1,6 +1,6 @@
 from nextpredco.core.model import Model
 
 
-class Observer:
+class ObserverABC:
     def __init__(self, model: Model):
         pass

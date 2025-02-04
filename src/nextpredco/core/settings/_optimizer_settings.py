@@ -1,20 +1,15 @@
 from dataclasses import dataclass, field
 
-PARAMETER = 'parameter'
-TYPE = 'type'
-VALUE = 'value'
-TEX = 'tex'
-DESCRIPTION = 'description'
-ROLE = 'role'
+type OptimizerSettings = IPOPTSettings
 
 
 @dataclass
-class OptimizerSettings:
+class OptimizerSettingsAbstract:
     name: str = field(default='optimizer')
     descriptions: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
-class IPOPTSettings(OptimizerSettings):
+class IPOPTSettings(OptimizerSettingsAbstract):
     name: str = field(default='ipopt')
     opts: dict[str, str | float | int] = field(default_factory=dict)

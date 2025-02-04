@@ -1,12 +1,5 @@
 from dataclasses import dataclass, field
 
-PARAMETER = 'parameter'
-TYPE = 'type'
-VALUE = 'value'
-TEX = 'tex'
-DESCRIPTION = 'description'
-ROLE = 'role'
-
 
 @dataclass
 class PlantSettings:
