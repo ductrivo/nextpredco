@@ -1,12 +1,10 @@
 import subprocess
 from pathlib import Path
 
-from nextpredco.core import tasks
+from nextpredco.core import examples, logger, tasks
 from nextpredco.core.control_system import ControlSystemBuilder, Director
-from nextpredco.core.logger import logger
 from nextpredco.core.settings import create_settings_template
-from nextpredco.core.utils import print_dict
-from nextpredco.data import data
+from nextpredco.core.tools import print_dict
 
 BACK_KEY: int = 88
 BACK_STR: str = 'Back'
@@ -110,7 +108,7 @@ def menu_init_project():
 
 
 def menu_choose_example_project(dir_name: str, back_func):
-    projects = data.list_example_projects()
+    projects = examples.list_example_projects()
     choice = get_choice(
         projects,
         title='\nChoose an example project:',

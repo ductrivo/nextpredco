@@ -8,12 +8,14 @@ import numpy as np
 from numpy.typing import NDArray
 from rich.pretty import pretty_repr
 
-from nextpredco.core.consts import (
+from nextpredco.core import (
     CONFIG_FOLDER,
     SS_VARS_DB,
+    Symbolic,
+    logger,
 )
-from nextpredco.core.custom_types import Symbolic
-from nextpredco.core.descriptors import (
+from nextpredco.core.integrator import IDAS
+from nextpredco.core.model._descriptors import (
     PhysicalVariable,
     ReadOnlyFloat,
     ReadOnlyInt,
@@ -22,8 +24,6 @@ from nextpredco.core.descriptors import (
     TimeVariable,
     VariableSource,
 )
-from nextpredco.core.integrator import IDAS
-from nextpredco.core.logger import logger
 from nextpredco.core.settings._settings import ModelSettings
 
 try:

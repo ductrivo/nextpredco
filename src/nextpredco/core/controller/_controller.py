@@ -6,10 +6,10 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core.custom_types import Symbolic
-from nextpredco.core.descriptors import ReadOnlyInt
-from nextpredco.core.logger import logger
+from nextpredco.core import Symbolic
+from nextpredco.core._logger import logger
 from nextpredco.core.model import Model
+from nextpredco.core.model._descriptors import ReadOnlyInt
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
     ControllerSettings,

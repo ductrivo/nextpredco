@@ -4,8 +4,7 @@ from types import UnionType
 
 import pandas as pd
 
-from nextpredco.core import utils
-from nextpredco.core.consts import (
+from nextpredco.core import (
     CONFIG_FOLDER,
     DESCRIPTION,
     PARAMETER,
@@ -16,8 +15,9 @@ from nextpredco.core.consts import (
     TEX,
     TYPE,
     VALUE,
+    logger,
+    tools,
 )
-from nextpredco.core.logger import logger
 from nextpredco.core.settings import (
     IDASSettings,
     IPOPTSettings,
@@ -119,7 +119,7 @@ def create_settings_template(project_dir: Path | None = None):
     # will be converted to "['x1', 'x2']".
     # With this, we have "[x1, x2]" which is more readable.
     settings_df[VALUE] = [
-        utils.list_to_str(value) if isinstance(value, list) else value
+        tools.list_to_str(value) if isinstance(value, list) else value
         for value in settings_df[VALUE]
     ]
 

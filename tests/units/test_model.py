@@ -6,16 +6,15 @@ import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from nextpredco.core.consts import (
+from nextpredco.core import (
     SS_VARS_DB,
     SS_VARS_PRIMARY,
     SS_VARS_SECONDARY,
     SS_VARS_SOURCES,
+    logger,
 )
-from nextpredco.core.descriptors import SystemVariableView, VariableSource
 from nextpredco.core.errors import DescriptorSetError, MemoryAddressError
-from nextpredco.core.logger import logger
-from nextpredco.core.model import Model
+from nextpredco.core.model import Model, SystemVariableView, VariableSource
 
 logger.setLevel(logging.INFO)
 
@@ -31,8 +30,8 @@ def test_address_matching_full(test_id: int):
     # TODO: Test if errors are raised
 
     model = Model()
-    k0, k = sorted(np.random.randint(0, model._n_max - 1, size=2))
-    model._k = k
+    k0, k = sorted(np.random.randint(0, model.n_max - 1, size=2))
+    model._data.k = k
     for ss_var in SS_VARS_DB:
         for source in SS_VARS_SOURCES:
             for view in ['full', 'val', 'prev', 'hist']:

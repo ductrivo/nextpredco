@@ -1,13 +1,14 @@
 from pathlib import Path
 
-from nextpredco.core import logger, utils
-from nextpredco.core.consts import (
+from nextpredco.core import (
     CONFIG_FOLDER,
+    logger,
+    tools,
 )
 from nextpredco.core.control_system import construct_control_system
+from nextpredco.core.examples import get_example_data
 from nextpredco.core.graphics import plot_transient
 from nextpredco.core.model import Model
-from nextpredco.data.data import get_example_data
 
 
 def simulate_transient():
@@ -22,7 +23,7 @@ def simulate_transient():
 def init_dir(work_dir: Path, example_project: str):
     try:
         config_dir = work_dir / CONFIG_FOLDER
-        utils.copy_example_data(
+        tools.copy_example_data(
             example_data=example_project,
             destination=config_dir,
         )

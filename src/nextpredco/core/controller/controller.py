@@ -1,19 +1,64 @@
-from copy import copy
+from abc import ABC, abstractmethod
+from copy import copy, deepcopy
 from typing import override
 
 import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core import Symbolic
-from nextpredco.core._logger import logger
-from nextpredco.core.controller import Controller
-from nextpredco.core.model import Model
-from nextpredco.core.model._descriptors import ReadOnlyInt
+from nextpredco.core import Symbolic, logger
+from nextpredco.core.model import Model, ReadOnlyInt
 from nextpredco.core.optimizer import IPOPT
 from nextpredco.core.settings import (
+    ControllerSettings,
     MPCSettings,
+    PIDSettings,
 )
+
+
+class Controller(ABC):
+    def __init__(
+        self,
+        settings: ControllerSettings | MPCSettings | PIDSettings,
+        model: Model | None = None,
+        optimizer: IPOPT | None = None,
+    ):
+        self._model = model
+        self._optimizer = optimizer
+        self._settings = settings
+        self._settings.dt = model.dt if settings.dt == -1 else settings.dt
+
+        self._n_ctrl = round(self._settings.dt / self._model.dt)
+
+    @abstractmethod
+    def make_step(self) -> NDArray:
+        pass
+
+    @property
+    def model(self) -> Model | None:
+        return self._model
+
+    @property
+    def optimizer(self) -> IPOPT | None:
+        return self._optimizer
+
+
+class PID(Controller):
+    def __init__(
+        self,
+        pid_settings: PIDSettings,
+    ):
+        super().__init__(pid_settings)
+        self._kp = pid_settings.kp
+        self._ki = pid_settings.ki
+        self._kd = pid_settings.kd
+
+    @override
+    def make_step(self):
+        pass
+
+    def auto_tuning(self):
+        pass
 
 
 class MPC(Controller):
@@ -66,7 +111,7 @@ class MPC(Controller):
         costs['du'] = self._compute_cost_ingredients(
             arr=self._model.get_du(
                 u_arr=u_pred,
-                u_last=self._model.u.goal.val,
+                u_last=self._model.u.est.last,
             ),
             weight=self._weights['du'],
         )

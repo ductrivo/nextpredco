@@ -1,11 +1,10 @@
 from numpy.typing import NDArray
 
-from nextpredco.core import utils
+from nextpredco.core import tools
 from nextpredco.core.controller import MPC, PID
 from nextpredco.core.integrator import IDAS
-from nextpredco.core.model import Model
+from nextpredco.core.model import Model, Plant
 from nextpredco.core.optimizer import IPOPT
-from nextpredco.core.plant import Plant
 from nextpredco.core.settings import (
     IDASSettings,
     IPOPTSettings,
@@ -91,7 +90,7 @@ class Director:
 
     def construct(self) -> ControlSystem:
         settings = read_settings_csv()
-        utils.print(settings)
+        tools.print(settings)
         self.builder.set_model(settings['model'], settings['model.integrator'])
 
         if 'controller' in settings:
