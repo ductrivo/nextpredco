@@ -65,6 +65,7 @@
         "multistep",
         "mypy",
         "nadj",
+        "ncol",
         "ndarray",
         "nextpredco",
         "nfwd",
@@ -125,6 +126,7 @@
         "vertcat",
         "VOIDPTR",
         "webassets",
+        "xdata",
         "xdist",
         "xdot",
         "xlabel",
@@ -132,6 +134,7 @@
         "xupq",
         "xyzmoupq",
         "xzupq",
+        "ydata",
         "ylabel",
         "ylim"
     ],

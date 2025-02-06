@@ -325,6 +325,10 @@ class Model:
     def k(self) -> int:
         return self._data.k
 
+    @property
+    def settings(self) -> ModelSettings | None:
+        return self._settings
+
     def get_var(self, var_: str) -> VariableSource:
         return self._physical_var(var_)
 

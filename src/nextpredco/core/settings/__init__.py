@@ -7,6 +7,9 @@ from nextpredco.core.settings._controller_settings import (
 from nextpredco.core.settings._controller_settings import (
     PIDSettings as PIDSettings,
 )
+from nextpredco.core.settings._graphics_settings import (
+    GraphicsSettings as GraphicsSettings,
+)
 from nextpredco.core.settings._integrator_settings import (
     IDASSettings as IDASSettings,
 )
@@ -35,10 +38,11 @@ from nextpredco.core.settings._settings import (
     create_settings_template as create_settings_template,
 )
 from nextpredco.core.settings._settings import (
-    read_settings_csv as read_settings_csv,
+    get_settings as get_settings,
 )
 
 __all__ = [
+    'GraphicsSettings',
     'IDASSettings',
     'IPOPTSettings',
     'IntegratorSettings',
@@ -50,5 +54,5 @@ __all__ = [
     'PIDSettings',
     'SettingsFactory',
     'create_settings_template',
-    'read_settings_csv',
+    'get_settings',
 ]

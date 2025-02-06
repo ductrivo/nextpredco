@@ -3,7 +3,7 @@ from typing import override
 
 import casadi as ca
 import numpy as np
-from numpy.typing import ArrayLike, NDArray
+from numpy.typing import NDArray
 
 from nextpredco.core import Symbolic
 from nextpredco.core.errors import StepSizeInitializationError
@@ -52,19 +52,27 @@ class Taylor(IntegratorABC):
         if self._settings.h is None:
             raise StepSizeInitializationError()
 
-        if t_grid is not None:
-            min_ = round(t_grid[0] / self._settings.h)
-            max_ = round(t_grid[-1] / self._settings.h)
-            t_grid2 = np.arange(min_, max_) * self._settings.h
-            input(t_grid2)
+        # if t_grid is not None:
+        #     min_ = round(t_grid[0] / self._settings.h)
+        #     max_ = round(t_grid[-1] / self._settings.h)
+        #     step = round(1 / self._settings.h)
+        #     t_grid2 = np.arange(min_, max_ + step, step) * self._settings.h
+        #     input(
+        #         f't_grid = {t_grid}, t_grid2 = {t_grid2}, '
+        #         'min_ = {min_}, max_ = {max_}, step = {step}'
+        #     )
 
-        x_arr: ArrayLike = []
+        # TODO, here we assume that the t_grid is divisible by h
+        x_arr = []
         x = x0
         for k in range(upq_arr.shape[1]):
             x = self._integrator(x, z0, upq_arr[:, k])
             x_arr.append(copy(x))
 
-        return (x, None, ca.hcat(x_arr), None)
+        if isinstance(x0, Symbolic):
+            return (x, np.array([[]]).T, ca.hcat(x_arr), np.array([[]]).T)
+
+        return (x, np.array([[]]).T, np.hstack(x_arr), np.array([[]]).T)
 
     @staticmethod
     def _is_divisible(x: float, y: float, tol: float = 1e-9) -> bool:

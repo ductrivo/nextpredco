@@ -1,6 +1,5 @@
 from numpy.typing import NDArray
 
-from nextpredco.core import tools
 from nextpredco.core.controller import ControllerFactory
 from nextpredco.core.model import Model, Plant
 from nextpredco.core.settings import (
@@ -9,7 +8,7 @@ from nextpredco.core.settings import (
     ModelSettings,
     ObserverSettings,
     OptimizerSettings,
-    read_settings_csv,
+    get_settings,
 )
 
 
@@ -39,12 +38,6 @@ class ControlSystemBuilder:
         settings: ModelSettings,
         integrator_settings: IntegratorSettings | None = None,
     ) -> 'ControlSystemBuilder':
-        # Create integrator if settings are provided
-        # if integrator_settings is not None:
-        #     integrator = IDAS(integrator_settings)
-        # else:
-        #     integrator = None
-
         # Create model
         self.system.model = Model(settings, integrator_settings)
         return self
@@ -55,10 +48,6 @@ class ControlSystemBuilder:
         optimizer_settings: OptimizerSettings | None = None,
         integrator_settings: IntegratorSettings | None = None,
     ) -> 'ControlSystemBuilder':
-        # Create optimizer if settings are provided
-        # if optimizer_settings is not None:
-        #     optimizer = IPOPT(optimizer_settings)
-
         # Create controller based on the setting type
         self.system.controller = ControllerFactory.create(
             settings=settings,
@@ -67,15 +56,6 @@ class ControlSystemBuilder:
             integrator_settings=integrator_settings,
         )
 
-        # if isinstance(settings, PIDSettings):
-        #     self.system.controller = PID(settings)
-
-        # elif isinstance(settings, MPCSettings):
-        #     self.system.controller = MPC(
-        #         settings=settings,
-        #         model=self.system.model,
-        #         optimizer=optimizer,
-        #     )
         return self
 
     def set_observer(
@@ -98,9 +78,10 @@ class Director:
     def __init__(self, builder: ControlSystemBuilder):
         self.builder = builder
 
-    def construct(self) -> ControlSystem:
-        settings = read_settings_csv()
-        tools.print(settings)
+    def construct(
+        self,
+        settings: dict,
+    ) -> ControlSystem:
         self.builder.set_model(settings['model'], settings['model.integrator'])
 
         if 'controller' in settings:
@@ -122,7 +103,13 @@ class Director:
         return self.builder.build()
 
 
-def construct_control_system() -> ControlSystem:
+def construct_control_system(
+    setting_file_name: str = 'settings_template.csv',
+) -> ControlSystem:
+    # To construct a control system,
+    # we need to read the settings from a CSV file
+    settings = get_settings(setting_file_name)
+
     builder = ControlSystemBuilder()
     director = Director(builder)
-    return director.construct()
+    return director.construct(settings)

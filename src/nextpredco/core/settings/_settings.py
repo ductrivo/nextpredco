@@ -120,8 +120,7 @@ def create_settings_template(project_dir: Path | None = None):
 
     # Read the configuration file
     df_configs = _read_config_csv(config_file)
-    logger.debug(df_configs)
-    input('Press Enter to continue...')
+
     # Create the INTEGRATOR settings DataFrame
     if _get_value(df=df_configs, parameter='model.is_continuous'):
         settings_dfs.append(
@@ -413,12 +412,12 @@ def _get_options_from_file(name: str, prefix: str = '') -> pd.DataFrame:
     return df_opts
 
 
-def read_settings_csv(
-    file_name: str = 'settings_template.csv',
+def get_settings(
+    setting_file_name: str,
 ) -> dict:
     # Read the settings file
     df = pd.read_csv(
-        Path.cwd() / SETTING_FOLDER / file_name,
+        Path.cwd() / SETTING_FOLDER / setting_file_name,
         na_filter=False,
     )
 

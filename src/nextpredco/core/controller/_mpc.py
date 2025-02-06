@@ -41,18 +41,18 @@ class MPC(ControllerABC):
             'du': settings.weight_du[0],
         }
 
-        self._nlp_solver = self._create_optimization_problem()
-        self._nlp_solver(
-            x0=np.repeat(self._model.u.goal.val, self._n_pred, axis=0),
-            p=np.vstack(
-                [
-                    self._model.x.est.val,
-                    self._model.z.est.val,
-                    self._model.p.est.val,
-                    self._model.q.est.val,
-                ]
-            ),
-        )
+        # self._nlp_solver = self._create_optimization_problem()
+        # self._nlp_solver(
+        #     x0=np.repeat(self._model.u.goal.val, self._n_pred, axis=0),
+        #     p=np.vstack(
+        #         [
+        #             self._model.x.est.val,
+        #             self._model.z.est.val,
+        #             self._model.p.est.val,
+        #             self._model.q.est.val,
+        #         ]
+        #     ),
+        # )
 
     def _create_optimization_problem(self):
         return self._predict_single_shooting()
