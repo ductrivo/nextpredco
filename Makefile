@@ -1,8 +1,18 @@
+# To install make, use the following command:
+# sudo apt-get install build-essential
+# Install uv:
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
 help:
 	bash run.sh help
 
 clean:
 	bash run.sh clean
+
+initialize:
+	bash run.sh create:venv
+	bash run.sh install:dev
+	bash run.sh install:package
 
 install-package:
 	bash run.sh install:package

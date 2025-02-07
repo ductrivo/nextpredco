@@ -44,6 +44,11 @@ function clean {
 
 }
 
+function create:venv {
+    uv venv --python 3.12.8
+}
+
+
 function install:package {
     uv pip install -e .
 }
