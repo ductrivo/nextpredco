@@ -57,18 +57,20 @@ class IDAS(IntegratorABC):
         x0: ArrayType,
         z0: ArrayType,
         upq_arr: ArrayType,
-        t_grid: TgridType,
+        t_grid: TgridType | None = None,
     ) -> tuple[ArrayType, ArrayType, ArrayType, ArrayType]:
         if self._settings.h is None:
             raise StepSizeInitializationError()
 
-        if t_grid is None or (
-            len(t_grid) == 2
-            and np.isclose(t_grid[1] - t_grid[0], self._settings.h)
+        if t_grid is None:
+            t_grid = [0, self._settings.h]
+
+        if len(t_grid) == 2 and np.isclose(
+            t_grid[1] - t_grid[0], self._settings.h
         ):
             integrator = self._integrator
         else:
-            integrator = self._create_integrator()
+            integrator = self._create_integrator(t_grid)
 
         if (
             isinstance(x0, Symbolic)

@@ -48,7 +48,7 @@ class Taylor(IntegratorABC):
         x0: ArrayType,
         z0: ArrayType,
         upq_arr: ArrayType,
-        t_grid: TgridType,
+        t_grid: TgridType | None = None,
     ) -> tuple[ArrayType, ArrayType, ArrayType, ArrayType]:
         if self._settings.h is None:
             raise StepSizeInitializationError()
