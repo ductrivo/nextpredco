@@ -156,6 +156,7 @@ class MPC(ControllerABC):
             x0=x0,
             z0=z0,
             upq_arr=upq_arr,
+            t_grid=None,
         )
 
         # Compute cost

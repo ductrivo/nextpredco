@@ -1,5 +1,7 @@
+import numpy as np
 from numpy.typing import NDArray
 
+from nextpredco.core import ArrayType, TgridType, tools
 from nextpredco.core.controller import ControllerFactory
 from nextpredco.core.model import Model, Plant
 from nextpredco.core.settings import (
@@ -20,13 +22,39 @@ class ControlSystem:
         self.plant = None
 
     def simulate(
-        self, u_arr: NDArray, p_arr: NDArray, q_arr: NDArray | None = None
+        self,
+        t_grid: TgridType,
+        x_arr: NDArray,
+        u_arr: NDArray | None = None,
+        p_arr: NDArray | None = None,
+        q_arr: NDArray | None = None,
     ):
-        for k in range(u_arr.shape[1]):
-            self.model.make_step(
-                u=u_arr[:, k, None],
-                p=p_arr[:, k, None],
-            )
+        if u_arr is not None:
+            k_max = u_arr.shape[1]
+        elif p_arr is not None:
+            k_max = p_arr.shape[1]
+        elif q_arr is not None:
+            k_max = q_arr.shape[1]
+        else:
+            msg = 'At least one of u_arr, p_arr, or q_arr must be provided'
+            raise ValueError(msg)
+
+        x = x_arr[:, 0, None]
+        x_results: list[NDArray] = [x]
+        for k in range(k_max):
+            # print(f'k = {k}')
+            u = None if u_arr is None else u_arr[:, k, None]
+            p = None if p_arr is None else p_arr[:, k, None]
+            q = None if q_arr is None else q_arr[:, k, None]
+            while True:
+                self.model.make_step(u=u, p=p, q=q)
+                if tools.is_in_list(t=self.model.t.val[0, 0], t_grid=t_grid):
+                    break
+
+            x_results.append(x)
+
+        x_results_ = np.hstack(x_results)
+        return x_results_, None
 
 
 class ControlSystemBuilder:

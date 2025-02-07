@@ -3,10 +3,7 @@ import contextlib
 import sys
 
 from nextpredco.cli import menu_main
-from nextpredco.core.tasks import (
-    init_dir,
-    simulate_transient,
-)
+from nextpredco.core import tasks
 
 
 def main():
@@ -48,7 +45,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == 'init':
-        init_dir(args.work_dir)
+        tasks.init_dir(args.work_dir)
 
     elif args.command == 'create-settings':
         print('Settings file created successfully.')
@@ -59,7 +56,7 @@ def main():
 
             # Add logic to handle different tasks
             if args.task == 'sim-transient':
-                simulate_transient(args.args)
+                tasks.simulation_with_example_data(args.args)
             else:
                 print(f'Unknown task: {args.task}')
                 sys.exit(1)

@@ -3,6 +3,9 @@ import json
 import shutil
 from pathlib import Path
 
+import numpy as np
+from numpy.typing import NDArray
+
 with contextlib.suppress(ImportError):
     from rich import print  # noqa: A004
 
@@ -33,3 +36,9 @@ def print_dict(input_: dict):
 
 def pretty_print_dict(data: dict):
     print(json.dumps(data, indent=4))
+
+
+def is_in_list(
+    t: float, t_grid: list[float | int] | NDArray, tol: float = 1e-6
+) -> bool:
+    return any(np.isclose(t, tg, atol=tol) for tg in t_grid)

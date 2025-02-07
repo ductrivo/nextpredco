@@ -41,17 +41,21 @@ class GraphicsSettings:
 
     def get_style(self, source: str, prefix: str = '') -> MatplotlibPlotStyle:
         if source == 'est':
-            self.est_style['label'] = f'{prefix}{self.est_style["label"]}'
-            return self.est_style
+            est_style = self.est_style.copy()
+            est_style['label'] = f'{prefix}{est_style["label"]}'
+            return est_style
         if source == 'act':
-            self.act_style['label'] = f'{prefix}{self.act_style["label"]}'
-            return self.act_style
+            act_style = self.act_style.copy()
+            act_style['label'] = f'{prefix}{act_style["label"]}'
+            return act_style
         if source == 'meas':
-            self.meas_style['label'] = f'{prefix}{self.meas_style["label"]}'
-            return self.meas_style
+            meas_style = self.meas_style.copy()
+            meas_style['label'] = f'{prefix}{meas_style["label"]}'
+            return meas_style
         if source == 'goal':
-            self.goal_style['label'] = f'{prefix}{self.goal_style["label"]}'
-            return self.goal_style
+            goal_style = self.goal_style.copy()
+            goal_style['label'] = f'{prefix}{goal_style["label"]}'
+            return goal_style
 
         msg = f'Unknown source: {source}'
         raise ValueError(msg)

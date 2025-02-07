@@ -1,12 +1,16 @@
 from pathlib import Path
+from typing import TypeVar
 
 import casadi as ca
+import numpy as np
 from casadi import SX as Symbolic
+from numpy.typing import ArrayLike, NDArray
 
 from nextpredco.core._logger import logger as logger
 
 type SourceType = list[str] | tuple[str, ...]
-
+type TgridType = list[float | int] | NDArray
+ArrayType = TypeVar('ArrayType', Symbolic, NDArray)
 
 PROJECT_DIR = Path(__file__).resolve().parents[3]
 DATA_DIR = Path(__file__).resolve().parents[1] / 'data'

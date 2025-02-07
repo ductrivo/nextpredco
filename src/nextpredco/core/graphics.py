@@ -40,13 +40,12 @@ def plot_transient_multi_systems(
     axs = ax_ if n_ax > 1 else [ax_]
 
     for name, system in systems.items():
-        t = system.model.t.get_hist(k0, kf)[0, :]
-
         for i, (physical_var, ss_var) in enumerate(all_vars.items()):
             ax = axs[i]
 
             attribute = system.model.get_var(physical_var)
-            val = attribute.est.get_hist(k0, kf)[0, :]
+            t = system.model.t.get_hist(k0, system.model.k)[0, :]
+            val = attribute.est.get_hist(k0, system.model.k)[0, :]
 
             prefix = '' if i != 0 else f'{name} - '.replace('.csv', '')
 
@@ -81,7 +80,7 @@ def plot_transient_multi_systems(
     axs[-1].set_xlabel('Time [s]')
     ax.set_xlim(x_min, x_max)
 
-    plt.show()
+    return fig, axs
 
 
 def plot_transient(

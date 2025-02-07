@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 import casadi as ca
 from numpy.typing import NDArray
 
-from nextpredco.core import Symbolic
+from nextpredco.core import ArrayType, Symbolic, TgridType
 from nextpredco.core.settings import (
     IntegratorSettings,
     TaylorSettings,
@@ -13,7 +13,7 @@ from nextpredco.core.settings import (
 class IntegratorABC(ABC):
     def __init__(
         self,
-        settings: IntegratorSettings | TaylorSettings,
+        settings: IntegratorSettings,
         equations: dict[str, Symbolic],
     ):
         super().__init__()
@@ -57,16 +57,16 @@ class IntegratorABC(ABC):
     @abstractmethod
     def integrate(
         self,
-        x0: Symbolic | NDArray,
-        z0: Symbolic | NDArray,
-        upq_arr: Symbolic | NDArray,
-        t_grid: list[float | int] | NDArray | None = None,
-    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        x0: ArrayType,
+        z0: ArrayType,
+        upq_arr: ArrayType,
+        t_grid: TgridType,
+    ) -> tuple[ArrayType, ArrayType, ArrayType, ArrayType]:
         pass
 
     @abstractmethod
     def _create_integrator(
         self,
-        t_grid: list[float | int] | NDArray | None = None,
+        t_grid: TgridType | None = None,
     ) -> ca.Function:
         pass

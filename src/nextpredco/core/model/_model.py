@@ -11,7 +11,9 @@ from rich.pretty import pretty_repr
 from nextpredco.core import (
     CONFIG_FOLDER,
     SS_VARS_DB,
+    ArrayType,
     Symbolic,
+    TgridType,
     logger,
 )
 from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
@@ -162,7 +164,6 @@ class Model:
                     data['n_clock_max'] if 'clock' in source else data['n_max']
                 )
                 arr_full = np.zeros((init_val.shape[0], n_max + 1))
-
                 arr_full[:, 0, None] += init_val
                 attr_name = f'_{ss_var}_{source}_full'
 
@@ -195,8 +196,8 @@ class Model:
 
     def _create_upq_dict(
         self,
-        upq: NDArray | Symbolic,
-    ) -> dict[str, NDArray | Symbolic]:
+        upq: ArrayType,
+    ) -> dict[str, ArrayType]:
         # TODO: Review the type hints
         upq_dict = {}
 
@@ -241,7 +242,7 @@ class Model:
 
         return transient_eqs
 
-    def get_y(self, x: NDArray | Symbolic):
+    def get_y(self, x: ArrayType) -> ArrayType:
         y: ArrayLike = []
         for var_ in self._settings.y_vars:
             idx = self._settings.y_vars.index(var_)
@@ -252,7 +253,7 @@ class Model:
 
         return np.array([[y]]).T
 
-    def get_du(self, u_arr: NDArray | Symbolic, u_last: NDArray | Symbolic):
+    def get_du(self, u_arr: ArrayType, u_last: ArrayType) -> ArrayType:
         du: ArrayLike = [u_arr[:, 0] - u_last]
         for i in range(u_arr.shape[1] - 1):
             du.append(u_arr[:, i + 1] - u_arr[:, i])
@@ -263,9 +264,9 @@ class Model:
         return np.array([du]).T
 
     def get_all_vars(
-        self, **ss_vars: Symbolic | NDArray
-    ) -> dict[str, Symbolic | NDArray]:
-        all_vars: dict[str, Symbolic | NDArray] = {}
+        self, **ss_vars: ArrayType
+    ) -> dict[str, ArrayType | float]:
+        all_vars: dict[str, ArrayType | float] = {}
 
         for ss_var in ['x', 'z', 'u', 'p', 'q', 'upq', 'const']:
             vars_list: list[str] = getattr(self._settings, f'{ss_var}_vars')
@@ -284,14 +285,14 @@ class Model:
 
     def get_upq(
         self,
-        u: Symbolic | NDArray | None = None,
-        p: Symbolic | NDArray | None = None,
-        q: Symbolic | NDArray | None = None,
-    ) -> Symbolic | NDArray:
+        u: ArrayType | None = None,
+        p: ArrayType | None = None,
+        q: ArrayType | None = None,
+    ) -> ArrayType:
         arr_ = []
-        u = self.u.est.val if u is None else u
-        p = self.p.est.val if p is None else p
-        q = self.q.est.val if q is None else q
+        u = self.u.est.last if u is None else u
+        p = self.p.est.last if p is None else p
+        q = self.q.est.last if q is None else q
 
         for var_ in self._settings.u_vars:
             idx = self._settings.u_vars.index(var_)
@@ -337,7 +338,6 @@ class Model:
 
     def make_step(
         self,
-        x: NDArray | None = None,
         u: NDArray | None = None,
         p: NDArray | None = None,
         q: NDArray | None = None,
@@ -348,23 +348,25 @@ class Model:
         self.p.est.val = p if p is not None else self.p.est.last
         self.q.est.val = q if q is not None else self.q.est.last
 
-        x_next, z_next, _, _ = self._integrator.integrate(
-            t_grid=self.t.get_hist(self.k - 1, self.k)[0, :],
-            x0=self.x.est.last,
-            z0=self.z.est.last,
-            upq_arr=self.upq.est.val,
-        )
+        x_next, z_next, _, _ = self.compute_xz()
 
         self.x.est.val = x_next
         self.z.est.val = z_next
 
     def compute_xz(
         self,
-        x0: NDArray,
-        z0: NDArray,
-        upq_arr: NDArray,
-        t_grid: NDArray,
+        x0: NDArray | None = None,
+        z0: NDArray | None = None,
+        u: NDArray | None = None,
+        p: NDArray | None = None,
+        q: NDArray | None = None,
+        t_grid: TgridType | None = None,
     ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        x0 = self.x.est.last if x0 is None else x0
+        z0 = self.z.est.last if z0 is None else z0
+        upq_arr = self.get_upq(u=u, p=p, q=q)
+        t_grid = [0, self._settings.dt] if t_grid is None else t_grid
+
         x, z, x_arr, z_arr = self._integrator.integrate(
             x0=x0,
             z0=z0,

@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import NDArray
 
-from nextpredco.core import Symbolic
+from nextpredco.core import ArrayType, Symbolic, TgridType
 from nextpredco.core.errors import StepSizeInitializationError
 from nextpredco.core.integrator._integrator import IntegratorABC
 from nextpredco.core.settings import IDASSettings
@@ -31,7 +31,7 @@ class IDAS(IntegratorABC):
     @override
     def _create_integrator(
         self,
-        t_grid: list[float | int] | NDArray | None = None,
+        t_grid: TgridType | None = None,
     ) -> ca.Function:
         if t_grid is None:
             return ca.integrator(
@@ -40,7 +40,7 @@ class IDAS(IntegratorABC):
                 self._equations,
                 0,
                 self._settings.h,
-                self._settings.opts,
+                # self._settings.opts,
             )
         return ca.integrator(
             'integrator',
@@ -48,19 +48,23 @@ class IDAS(IntegratorABC):
             self._equations,
             t_grid[0],
             t_grid,
-            self._settings.opts,
+            # self._settings.opts,
         )
 
     @override
     def integrate(
         self,
-        x0: Symbolic | NDArray,
-        z0: Symbolic | NDArray,
-        upq_arr: Symbolic | NDArray,
-        t_grid: list[float | int] | NDArray | None = None,
-    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+        x0: ArrayType,
+        z0: ArrayType,
+        upq_arr: ArrayType,
+        t_grid: TgridType,
+    ) -> tuple[ArrayType, ArrayType, ArrayType, ArrayType]:
+        if self._settings.h is None:
+            raise StepSizeInitializationError()
+
         if t_grid is None or (
-            len(t_grid) == 2 and t_grid[1] - t_grid[0] == self._settings.h
+            len(t_grid) == 2
+            and np.isclose(t_grid[1] - t_grid[0], self._settings.h)
         ):
             integrator = self._integrator
         else:
@@ -72,6 +76,10 @@ class IDAS(IntegratorABC):
             or isinstance(upq_arr, Symbolic)
         ):
             raise NotImplementedError('Symbolic integration is not supported.')
+
+        if len(list(t_grid)) != upq_arr.shape[1] + 1:
+            msg = 'The length of t_grid must be equal to upq_arr.shape[1] + 1.'
+            raise ValueError(msg)
 
         x, z = x0, z0
         x_list: list[NDArray] = []
