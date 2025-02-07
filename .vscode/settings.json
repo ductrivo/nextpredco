@@ -57,6 +57,8 @@
         "linestyle",
         "linsol",
         "lterm",
+        "mathbf",
+        "mathcal",
         "mathrm",
         "matplotlib",
         "mkdocs",
