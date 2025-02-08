@@ -52,5 +52,17 @@ def simulation_with_example_data(
     p_arr = ex_data['p'].T
     t_grid = np.arange(0, x_arr.shape[1] + 1) * 0.01
 
-    system.simulate(t_grid=t_grid, x_arr=x_arr, u_arr=u_arr, p_arr=p_arr)
+    system.simulate_model_only(
+        t_grid=t_grid,
+        x_arr=x_arr,
+        u_arr=u_arr,
+        p_arr=p_arr,
+    )
     return system
+
+
+def simulate_control_system():
+    system = construct_control_system('settings_taylor.csv')
+    system.simulate()
+    graphics.plot_transient_multi_systems({'taylor': system})
+    plt.show()

@@ -75,7 +75,7 @@ class Taylor(IntegratorABC):
                 integrator = self._create_integrator([0, h_new])
                 x = integrator(x, z0, upq_arr[:, k, None])
             else:
-                x = self._integrator(x, z0, upq_arr[:, k, None])
+                x = self._integrator(x, z0, upq_arr[:, k])
 
             if self._is_in_grid(t=t_grid2[i + 1], t_grid=t_grid):
                 x_arr.append(copy(x))

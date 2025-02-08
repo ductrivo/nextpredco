@@ -1,8 +1,8 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from nextpredco.core import ArrayType, TgridType, tools
-from nextpredco.core.controller import ControllerFactory
+from nextpredco.core import ArrayType, TgridType, logger, tools
+from nextpredco.core.controller import Controller, ControllerFactory
 from nextpredco.core.model import Model, Plant
 from nextpredco.core.settings import (
     ControllerSettings,
@@ -17,11 +17,11 @@ from nextpredco.core.settings import (
 class ControlSystem:
     def __init__(self):
         self.model: Model | None = None  # type: ignore[annotation-unchecked]
-        self.controller = None
+        self.controller: Controller | None = None  # type: ignore[annotation-unchecked]
         self.observer = None
         self.plant = None
 
-    def simulate(
+    def simulate_model_only(
         self,
         t_grid: TgridType,
         x_arr: NDArray,
@@ -55,6 +55,18 @@ class ControlSystem:
 
         x_results_ = np.hstack(x_results)
         return x_results_, None
+
+    def simulate(self):
+        logger.info(
+            'Total size of ModelData: %s MB.', self.model._data.size / 1024
+        )
+        # input('Press Enter to start simulation')
+
+        for k in range(self.model.k_max):
+            # print(f'k = {k}')
+            self.model.y.goal.val = 0.6
+            u = self.controller.make_step()
+            self.model.make_step(u=u)
 
 
 class ControlSystemBuilder:

@@ -40,7 +40,7 @@ class IDAS(IntegratorABC):
                 self._equations,
                 0,
                 self._settings.h,
-                # self._settings.opts,
+                self._settings.opts,
             )
         return ca.integrator(
             'integrator',
@@ -48,7 +48,7 @@ class IDAS(IntegratorABC):
             self._equations,
             t_grid[0],
             t_grid,
-            # self._settings.opts,
+            self._settings.opts,
         )
 
     @override

@@ -1,4 +1,5 @@
 import importlib.util
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,8 +34,8 @@ from nextpredco.core.settings import ModelSettings
 class ModelData:
     k: int
     k_clock: int
-    n_max: int
-    n_clock_max: int
+    k_max: int
+    k_clock_max: int
 
     t_full: NDArray
     t_clock_full: NDArray
@@ -78,6 +79,28 @@ class ModelData:
     z_filt_clock_full: NDArray | None = field(default=None)
     upq_filt_clock_full: NDArray | None = field(default=None)
 
+    # MPC predictions
+    k_preds_full: dict[int, NDArray] = field(default_factory=dict)
+    x_preds_full: dict[int, NDArray] = field(default_factory=dict)
+    u_preds_full: dict[int, NDArray] = field(default_factory=dict)
+
+    # {k: {x/y/u/du: value}}
+    costs_full: dict[str, dict[int, float]] = field(default_factory=dict)
+
+    @property
+    def size(self) -> int:
+        size = 0
+        for field_name, field_value in self.__dict__.items():
+            if isinstance(field_value, np.ndarray):
+                size += field_value.nbytes
+            elif isinstance(field_value, dict):
+                size += sys.getsizeof(field_value)
+                for array in field_value.values():
+                    size += array.nbytes
+            else:
+                size += sys.getsizeof(field_value)
+        return size
+
 
 class Model:
     # Settings
@@ -87,10 +110,6 @@ class Model:
     k_clock = ReadOnlyInt()
     dt_clock = ReadOnlyFloat()
     sources = ReadOnlySource()
-
-    # Data
-    n_clock_max = ReadOnlyInt()
-    n_max = ReadOnlyInt()
 
     x = SystemVariable()
     z = SystemVariable()
@@ -139,8 +158,8 @@ class Model:
         # Extract time information
         data['k'] = 0
         data['k_clock'] = 0
-        data['n_max'] = round(self._settings.t_max / self._settings.dt)
-        data['n_clock_max'] = round(
+        data['k_max'] = round(self._settings.t_max / self._settings.dt)
+        data['k_clock_max'] = round(
             self._settings.t_max / self._settings.dt_clock,
         )
 
@@ -160,10 +179,13 @@ class Model:
 
             # Create data holder (full arrays) for each source
             for source in self.sources:
-                n_max = (
-                    data['n_clock_max'] if 'clock' in source else data['n_max']
+                if source == 'preds':
+                    continue
+
+                k_max = (
+                    data['k_clock_max'] if 'clock' in source else data['k_max']
                 )
-                arr_full = np.zeros((init_val.shape[0], n_max + 1))
+                arr_full = np.zeros((init_val.shape[0], k_max + 1))
                 arr_full[:, 0, None] += init_val
                 attr_name = f'_{ss_var}_{source}_full'
 
@@ -171,8 +193,8 @@ class Model:
                 created_attrs.append(attr_name)
 
         # Create data holder (full arrays) for time variables
-        data['t_full'] = np.zeros((1, data['n_max'] + 1))
-        data['t_clock_full'] = np.zeros((1, data['n_clock_max'] + 1))
+        data['t_full'] = np.zeros((1, data['k_max'] + 1))
+        data['t_clock_full'] = np.zeros((1, data['k_clock_max'] + 1))
         return ModelData(**data)  # type: ignore[arg-type]
 
     @staticmethod
@@ -329,6 +351,29 @@ class Model:
     @property
     def settings(self) -> ModelSettings | None:
         return self._settings
+
+    @property
+    def k_max(self) -> int:
+        return self._data.k_max
+
+    @property
+    def k_clock_max(self) -> int:
+        return self._data.k_clock_max
+
+    def create_data_preds_full(
+        self,
+        k_preds_full: dict[int, NDArray] | None = None,
+        x_preds_full: dict[int, NDArray] | None = None,
+        u_preds_full: dict[int, NDArray] | None = None,
+    ) -> None:
+        if k_preds_full is not None:
+            self._data.k_preds_full = k_preds_full
+
+        if x_preds_full is not None:
+            self._data.x_preds_full = x_preds_full
+
+        if u_preds_full is not None:
+            self._data.u_preds_full = u_preds_full
 
     def get_var(self, var_: str) -> VariableSource:
         return self._physical_var(var_)

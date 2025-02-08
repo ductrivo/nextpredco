@@ -164,12 +164,82 @@ class SystemVariableView:
         self._arr_full[self._idx_list, k0 : (k1 + 1)] = val
 
 
+class SystemVariableViewPreds:
+    def __init__(
+        self,
+        k: int,
+        preds_full: dict[int, NDArray],
+        idx_list: list[int],
+    ) -> None:
+        self._k = k
+        self._preds_full = preds_full
+        self._idx_list = idx_list
+
+    @property
+    def horizon(self) -> NDArray:
+        return self.get_horizon(self._k)
+
+    @horizon.setter
+    def horizon(self, val: NDArray):
+        self.set_horizon(self._k, val)
+
+    @property
+    def val(self) -> NDArray:
+        return self.get_val(self._k)
+
+    @val.setter
+    def val(self, val: NDArray):
+        self.set_val(self._k, val)
+
+    def get_horizon(self, k: int) -> NDArray:
+        arr = self._preds_full[k]
+
+        # TODO: is this necessary?
+        if len(self._idx_list) == 0:
+            return np.array([[]])
+
+        if len(self._idx_list) == arr.shape[0]:
+            return arr
+
+        return arr[self._idx_list, :]
+
+    def set_horizon(
+        self,
+        k: int,
+        val: NDArray,
+        k_preds: list[int] | int | None = None,
+    ) -> None:
+        if len(self._idx_list) == 0:
+            raise EmptyArrayError()
+
+        if (k_preds is None) or (k not in self._preds_full):
+            self._preds_full[k] = val
+        else:
+            k_preds_ = [k_preds] if isinstance(k_preds, int) else k_preds
+            self._preds_full[k][self._idx_list, k_preds_] = val
+
+    def get_val(self, k: int) -> NDArray:
+        return self.get_horizon(k)[:, 0, None]
+
+    def set_val(
+        self,
+        k: int,
+        val: NDArray,
+        k_pred: list[int] | int | None = None,
+    ):
+        k_pred_ = [self._k] if k_pred is None else k_pred
+        if k in self._preds_full:
+            self.set_horizon(k, val, k_preds=k_pred_)
+        # TODO: standardize the val type
+
+
 class VariableSource(ReadOnlyData):
     goal: SystemVariableView | ReadOnlyData = ReadOnlyData()
     act: SystemVariableView | ReadOnlyData = ReadOnlyData()
     est: SystemVariableView | ReadOnlyData = ReadOnlyData()
     meas: SystemVariableView | ReadOnlyData = ReadOnlyData()
     filt: SystemVariableView | ReadOnlyData = ReadOnlyData()
+    preds: SystemVariableViewPreds | ReadOnlyData = ReadOnlyData()
 
     goal_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
     act_clock: SystemVariableView | ReadOnlyData = ReadOnlyData()
@@ -181,18 +251,25 @@ class VariableSource(ReadOnlyData):
         self,
         k: int,
         k_clock: int,
-        arr_fulls: dict[str, NDArray],
+        arr_fulls: dict[str, NDArray | dict[int, NDArray]],
         idx_lists: dict[str, list[int]],
     ) -> None:
         for source, arr_full in arr_fulls.items():
-            idx_list = idx_lists[source]
-            k_ = k_clock if 'clock' in source else k
-            attr_name = f'_{source}'
-            setattr(
-                self,
-                attr_name,
-                SystemVariableView(k_, arr_full, idx_list),
-            )
+            if source == 'preds' and isinstance(arr_full, dict):
+                idx_list = idx_lists[source]
+                attr_name = f'_{source}'
+                self._preds = SystemVariableViewPreds(
+                    k, arr_full, idx_lists[source]
+                )
+            elif isinstance(arr_full, np.ndarray):
+                k_ = k_clock if 'clock' in source else k
+                idx_list = idx_lists[source]
+                attr_name = f'_{source}'
+                setattr(
+                    self,
+                    attr_name,
+                    SystemVariableView(k_, arr_full, idx_list),
+                )
 
 
 class SystemVariable:
@@ -214,17 +291,26 @@ class SystemVariable:
             f'{self._name}_vars',
         )
 
-        arr_fulls: dict[str, NDArray] = {}
+        arr_fulls: dict[str, NDArray | dict[int, NDArray]] = {}
         idx_lists: dict[str, list[int]] = {}
         for source in sources:
-            arr_fulls[source], idx_lists[source] = (
-                self._get_arr_fulls_and_idx_lists(
-                    instance,
-                    ss_name=self._name,
-                    name=self._name,
-                    source=source,
+            if source == 'preds' and self._name == 'x':
+                arr_fulls[source] = instance._data.x_preds_full
+                idx_lists[source] = list(range(instance.n('x')))
+            elif source == 'preds' and self._name == 'u':
+                arr_fulls[source] = instance._data.u_preds_full
+                idx_lists[source] = list(range(instance.n('u')))
+            elif source == 'preds':
+                continue
+            else:
+                arr_fulls[source], idx_lists[source] = (
+                    self._get_arr_fulls_and_idx_lists(
+                        instance,
+                        ss_name=self._name,
+                        name=self._name,
+                        source=source,
+                    )
                 )
-            )
 
         return VariableSource(
             instance._data.k,
@@ -300,9 +386,11 @@ class PhysicalVariable(SystemVariable):
         elif var_ in self._upq_vars:
             ss_name = 'upq'
 
-        arr_fulls: dict[str, NDArray] = {}
+        arr_fulls: dict[str, NDArray | dict[int, NDArray]] = {}
         idx_lists: dict[str, list[int]] = {}
         for source in self._sources:
+            if source == 'preds':
+                continue
             arr_fulls[source], idx_lists[source] = (
                 self._get_arr_fulls_and_idx_lists(
                     self._instance,

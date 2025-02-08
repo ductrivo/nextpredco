@@ -23,7 +23,7 @@ class MPCSettings(ControllerSettingsAbstract):
     n_pred: int = field(default=3)
     normalizing: bool = field(default=False)
 
-    weight_x: list[float] = field(default_factory=lambda: [1.0])
+    weight_x: list[float] = field(default_factory=lambda: [0.0])
     weight_y: list[float] = field(default_factory=lambda: [1.0])
-    weight_u: list[float] = field(default_factory=lambda: [1.0])
-    weight_du: list[float] = field(default_factory=lambda: [1.0])
+    weight_u: list[float] = field(default_factory=lambda: [0.0])
+    weight_du: list[float] = field(default_factory=lambda: [0.0])

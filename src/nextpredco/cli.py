@@ -2,7 +2,11 @@ import subprocess
 from pathlib import Path
 
 from nextpredco.core import examples, logger, tasks
-from nextpredco.core.control_system import ControlSystemBuilder, Director
+from nextpredco.core.control_system import (
+    ControlSystemBuilder,
+    Director,
+    construct_control_system,
+)
 from nextpredco.core.settings import create_settings_template
 from nextpredco.core.tools import print_dict
 
@@ -39,10 +43,7 @@ def menu_main():
         tasks.simulation_different_settings()
 
     elif choice == 'Test':
-        builder = ControlSystemBuilder()
-        director = Director(builder)
-        system = director.construct()
-        system.model.make_step()
+        tasks.simulate_control_system()
 
     elif choice == EXIT_KEY:
         return

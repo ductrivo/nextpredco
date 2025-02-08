@@ -30,7 +30,7 @@ def test_address_matching_full(test_id: int):
     # TODO: Test if errors are raised
 
     model = Model()
-    k0, k = sorted(np.random.randint(0, model.n_max - 1, size=2))
+    k0, k = sorted(np.random.randint(0, model.k_max - 1, size=2))
     model._data.k = k
     for ss_var in SS_VARS_DB:
         for source in SS_VARS_SOURCES:
