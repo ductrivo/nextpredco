@@ -9,14 +9,12 @@ import numpy as np
 from numpy.typing import ArrayLike, NDArray
 from rich.pretty import pretty_repr
 
-from nextpredco.core import (
+from nextpredco.core._consts import (
     CONFIG_FOLDER,
     SS_VARS_DB,
-    ArrayType,
-    Symbolic,
-    TgridType,
-    logger,
 )
+from nextpredco.core._logger import logger
+from nextpredco.core._typing import ArrayType, Symbolic, TgridType
 from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
 from nextpredco.core.model._descriptors import (
     PhysicalVariable,
@@ -85,7 +83,7 @@ class ModelData:
     u_preds_full: dict[int, NDArray] = field(default_factory=dict)
 
     # {k: {x/y/u/du: value}}
-    costs_full: dict[str, dict[int, float]] = field(default_factory=dict)
+    # costs_full: NDArray | None = field(default_factory=dict)
 
     @property
     def size(self) -> int:

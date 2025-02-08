@@ -1,12 +1,8 @@
 import subprocess
 from pathlib import Path
 
-from nextpredco.core import examples, logger, tasks
-from nextpredco.core.control_system import (
-    ControlSystemBuilder,
-    Director,
-    construct_control_system,
-)
+from nextpredco.core import examples, tasks
+from nextpredco.core._logger import logger
 from nextpredco.core.settings import create_settings_template
 from nextpredco.core.tools import print_dict
 

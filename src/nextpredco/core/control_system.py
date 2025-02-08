@@ -1,7 +1,9 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from nextpredco.core import ArrayType, TgridType, logger, tools
+from nextpredco.core import tools
+from nextpredco.core._logger import logger
+from nextpredco.core._typing import TgridType
 from nextpredco.core.controller import Controller, ControllerFactory
 from nextpredco.core.model import Model, Plant
 from nextpredco.core.settings import (

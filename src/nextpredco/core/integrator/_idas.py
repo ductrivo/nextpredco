@@ -5,7 +5,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import NDArray
 
-from nextpredco.core import ArrayType, Symbolic, TgridType
+from nextpredco.core._typing import ArrayType, Symbolic, TgridType
 from nextpredco.core.errors import StepSizeInitializationError
 from nextpredco.core.integrator._integrator import IntegratorABC
 from nextpredco.core.settings import IDASSettings

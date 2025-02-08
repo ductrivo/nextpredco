@@ -1,12 +1,10 @@
 from abc import ABC, abstractmethod
 
 import casadi as ca
-from numpy.typing import NDArray
 
-from nextpredco.core import ArrayType, Symbolic, TgridType
+from nextpredco.core._typing import ArrayType, Symbolic, TgridType
 from nextpredco.core.settings import (
     IntegratorSettings,
-    TaylorSettings,
 )
 
 

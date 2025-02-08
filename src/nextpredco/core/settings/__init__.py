@@ -22,6 +22,9 @@ from nextpredco.core.settings._model_settings import (
 from nextpredco.core.settings._observer_settings import (
     KalmanSettings as KalmanSettings,
 )
+from nextpredco.core.settings._observer_settings import (
+    StateFeedback as StateFeedback,
+)
 from nextpredco.core.settings._optimizer_settings import (
     IPOPTSettings as IPOPTSettings,
 )

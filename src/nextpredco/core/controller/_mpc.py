@@ -5,8 +5,8 @@ import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
 
-from nextpredco.core import ArrayType, Symbolic
 from nextpredco.core._logger import logger
+from nextpredco.core._typing import ArrayType, Symbolic
 from nextpredco.core.controller import ControllerABC
 from nextpredco.core.model import Model
 from nextpredco.core.model._descriptors import ReadOnlyInt
@@ -41,7 +41,7 @@ class MPC(ControllerABC):
             'du': settings.weight_du[0],
         }
 
-        # self._create_data_preds_in_model()
+        self._create_data_preds_in_model()
 
         # TODO Verify when need to re-create the nlp solver
         self._nlp_solver: ca.Function
@@ -55,13 +55,15 @@ class MPC(ControllerABC):
             step=self._n_pred,
             dtype=int,
         )
-        k_preds: dict[int, NDArray] = {
-            k: k + np.arange(self.n_pred) + 1 for k in k_stamps
+
+        k_preds = {
+            k: k + np.arange(self.n_pred, dtype=int) + 1 for k in k_stamps
         }
-        u_preds: dict[int, NDArray] = {
+
+        u_preds = {
             k: np.zeros((self.model.n('u'), self.n_pred)) for k in k_stamps
         }
-        x_preds: dict[int, NDArray] = {
+        x_preds = {
             k: np.zeros((self.model.n('x'), self.n_pred)) for k in k_stamps
         }
 
@@ -244,3 +246,5 @@ class MPC(ControllerABC):
         self._model.x.preds.horizon = self._nlp_funcs['x_preds'](
             sol['x'], params
         )
+
+        return self._model.u.preds.val

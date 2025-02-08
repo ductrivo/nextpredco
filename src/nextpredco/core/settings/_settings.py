@@ -4,7 +4,8 @@ from types import UnionType
 
 import pandas as pd
 
-from nextpredco.core import (
+from nextpredco.core import tools
+from nextpredco.core._consts import (
     CONFIG_FOLDER,
     DESCRIPTION,
     PARAMETER,
@@ -15,9 +16,8 @@ from nextpredco.core import (
     TEX,
     TYPE,
     VALUE,
-    logger,
-    tools,
 )
+from nextpredco.core._logger import logger
 from nextpredco.core.settings._controller_settings import (
     ControllerSettings,
     MPCSettings,

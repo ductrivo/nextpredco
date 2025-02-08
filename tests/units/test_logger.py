@@ -1,12 +1,9 @@
 import os
-import random
 import secrets
-from itertools import permutations
 from logging import CRITICAL, DEBUG, ERROR, INFO, WARNING, FileHandler, Logger
 from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 
-import pytest
 
 LOG_LEVELS = {
     'debug': DEBUG,

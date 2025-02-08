@@ -3,7 +3,9 @@ from pathlib import Path
 import numpy as np
 from matplotlib import pyplot as plt
 
-from nextpredco.core import CONFIG_FOLDER, graphics, logger, tools
+from nextpredco.core import graphics, tools
+from nextpredco.core._consts import CONFIG_FOLDER
+from nextpredco.core._logger import logger
 from nextpredco.core.control_system import (
     construct_control_system,
 )

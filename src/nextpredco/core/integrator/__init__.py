@@ -1,4 +1,4 @@
-from nextpredco.core import Symbolic
+from nextpredco.core._typing import Symbolic
 from nextpredco.core.integrator._idas import IDAS as IDAS
 from nextpredco.core.integrator._taylors import Taylor as Taylor
 from nextpredco.core.settings import (

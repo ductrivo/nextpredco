@@ -1,20 +1,16 @@
 import logging
-from ctypes import addressof, c_int
-from pprint import pprint
 
 import numpy as np
 import pytest
 from numpy.typing import NDArray
 
-from nextpredco.core import (
+from nextpredco.core._consts import (
     SS_VARS_DB,
-    SS_VARS_PRIMARY,
-    SS_VARS_SECONDARY,
     SS_VARS_SOURCES,
-    logger,
 )
+from nextpredco.core._logger import logger
 from nextpredco.core.errors import DescriptorSetError, MemoryAddressError
-from nextpredco.core.model import Model, SystemVariableView, VariableSource
+from nextpredco.core.model import Model, SystemVariableView
 
 logger.setLevel(logging.INFO)
 

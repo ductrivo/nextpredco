@@ -3,7 +3,7 @@ from pathlib import Path
 import numpy as np
 from numpy.typing import NDArray
 
-from nextpredco.core import CONFIG_FOLDER
+from nextpredco.core._consts import CONFIG_FOLDER
 
 DATA_DIR = Path(__file__).parent
 
