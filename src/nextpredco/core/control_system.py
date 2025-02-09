@@ -54,7 +54,6 @@ class ControlSystem:
                     break
 
             x_results.append(x)
-
         x_results_ = np.hstack(x_results)
         return x_results_, None
 
@@ -65,10 +64,14 @@ class ControlSystem:
         # input('Press Enter to start simulation')
 
         for k in range(self.model.k_max):
-            # print(f'k = {k}')
             self.model.y.goal.val = 0.6
             u = self.controller.make_step()
             self.model.make_step(u=u)
+            # logger.debug('control u = %s', u.T)
+            # logger.info('control u est = %s', self.model.u.est.val.T)
+            # logger.info('control x est = %s', self.model.x.est.val.T)
+            # input('in control system Press Enter to continue')
+        self.model.export_data_csv()
 
 
 class ControlSystemBuilder:

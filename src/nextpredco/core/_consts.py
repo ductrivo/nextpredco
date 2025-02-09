@@ -19,3 +19,4 @@ VALUE = 'value'
 TEX = 'tex'
 DESCRIPTION = 'description'
 ROLE = 'role'
+COST_ELEMENTS = ['x', 'y', 'u', 'du', 'total']

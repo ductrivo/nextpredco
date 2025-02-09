@@ -6,15 +6,19 @@ from pathlib import Path
 
 import casadi as ca
 import numpy as np
+import pandas as pd
 from numpy.typing import ArrayLike, NDArray
 from rich.pretty import pretty_repr
 
-from nextpredco.core._consts import (
-    CONFIG_FOLDER,
-    SS_VARS_DB,
-)
+from nextpredco.core._consts import CONFIG_FOLDER, COST_ELEMENTS, SS_VARS_DB
 from nextpredco.core._logger import logger
-from nextpredco.core._typing import ArrayType, Symbolic, TgridType
+from nextpredco.core._typing import (
+    Array2D,
+    ArrayType,
+    PredDType,
+    Symbolic,
+    TgridType,
+)
 from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
 from nextpredco.core.model._descriptors import (
     PhysicalVariable,
@@ -78,12 +82,12 @@ class ModelData:
     upq_filt_clock_full: NDArray | None = field(default=None)
 
     # MPC predictions
-    k_preds_full: dict[int, NDArray] = field(default_factory=dict)
-    x_preds_full: dict[int, NDArray] = field(default_factory=dict)
-    u_preds_full: dict[int, NDArray] = field(default_factory=dict)
+    k_preds_full: PredDType = field(default_factory=dict)
+    x_preds_full: PredDType = field(default_factory=dict)
+    u_preds_full: PredDType = field(default_factory=dict)
 
     # {k: {x/y/u/du: value}}
-    # costs_full: NDArray | None = field(default_factory=dict)
+    costs_full: PredDType = field(default_factory=dict)
 
     @property
     def size(self) -> int:
@@ -121,6 +125,7 @@ class Model:
     upq = SystemVariable()
     t = TimeVariable()
     t_clock = TimeVariable()
+    costs = TimeVariable()
 
     def __init__(
         self,
@@ -264,9 +269,13 @@ class Model:
 
     def get_y(self, x: ArrayType) -> ArrayType:
         y: ArrayLike = []
+
         for var_ in self._settings.y_vars:
-            idx = self._settings.y_vars.index(var_)
-            y.append(x[idx, 0])
+            idx = self._settings.x_vars.index(var_)
+            if isinstance(x, Symbolic):
+                y.append(x[idx, :])
+            else:
+                y.append(x[idx, 0])
 
         if isinstance(x, Symbolic):
             return ca.vcat(y)
@@ -279,9 +288,9 @@ class Model:
             du.append(u_arr[:, i + 1] - u_arr[:, i])
 
         if isinstance(u_arr, Symbolic):
-            return ca.vcat(du)
+            return ca.hcat(du)
 
-        return np.array([du]).T
+        return np.array([du])
 
     def get_all_vars(
         self, **ss_vars: ArrayType
@@ -358,11 +367,48 @@ class Model:
     def k_clock_max(self) -> int:
         return self._data.k_clock_max
 
+    @property
+    def x_vars(self) -> list[str]:
+        return self._settings.x_vars
+
+    @property
+    def z_vars(self) -> list[str]:
+        return self._settings.z_vars
+
+    @property
+    def u_vars(self) -> list[str]:
+        return self._settings.u_vars
+
+    @property
+    def p_vars(self) -> list[str]:
+        return self._settings.p_vars
+
+    @property
+    def q_vars(self) -> list[str]:
+        return self._settings.q_vars
+
+    @property
+    def y_vars(self) -> list[str]:
+        return self._settings.y_vars
+
+    @property
+    def m_vars(self) -> list[str]:
+        return self._settings.m_vars
+
+    @property
+    def o_vars(self) -> list[str]:
+        return self._settings.o_vars
+
+    @property
+    def upq_vars(self) -> list[str]:
+        return self._settings.upq_vars
+
     def create_data_preds_full(
         self,
-        k_preds_full: dict[int, NDArray] | None = None,
-        x_preds_full: dict[int, NDArray] | None = None,
-        u_preds_full: dict[int, NDArray] | None = None,
+        k_preds_full: PredDType | None = None,
+        x_preds_full: PredDType | None = None,
+        u_preds_full: PredDType | None = None,
+        costs_full: PredDType | None = None,
     ) -> None:
         if k_preds_full is not None:
             self._data.k_preds_full = k_preds_full
@@ -372,6 +418,9 @@ class Model:
 
         if u_preds_full is not None:
             self._data.u_preds_full = u_preds_full
+
+        if costs_full is not None:
+            self._data.costs_full = costs_full
 
     def get_var(self, var_: str) -> VariableSource:
         return self._physical_var(var_)
@@ -407,9 +456,15 @@ class Model:
     ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
         x0 = self.x.est.last if x0 is None else x0
         z0 = self.z.est.last if z0 is None else z0
+
+        u = self.u.est.val if u is None else u
+        p = self.p.est.val if p is None else p
+        q = self.q.est.val if q is None else q
+
         upq_arr = self.get_upq(u=u, p=p, q=q)
         t_grid = [0, self._settings.dt] if t_grid is None else t_grid
 
+        # logger.info(dict(x0=x0, z0=z0, upq_arr=upq_arr, t_grid=t_grid))
         x, z, x_arr, z_arr = self._integrator.integrate(
             x0=x0,
             z0=z0,
@@ -417,6 +472,31 @@ class Model:
             t_grid=t_grid,
         )
         return x, z, x_arr, z_arr
+
+    def export_data_csv(self, k0: int | None = None, kf: int | None = None):
+        k0 = k0 if k0 is not None else 0
+        kf = kf if kf is not None else self.k
+
+        report_dir = Path().cwd() / 'report'
+        report_dir.mkdir(exist_ok=True)
+
+        dfs: list[pd.DataFrame] = [
+            pd.DataFrame(np.arange(self.k + 1), columns=['k']),
+            pd.DataFrame(self.t.hist[0, :], columns=['t']),
+            pd.DataFrame(self.x.est.get_hist(k0, kf).T, columns=self.x_vars),
+            pd.DataFrame(self.z.est.get_hist(k0, kf).T, columns=self.z_vars),
+            pd.DataFrame(
+                self.upq.est.get_hist(k0, kf).T, columns=self.upq_vars
+            ),
+            # pd.DataFrame(self.costs.x.hist.T, columns=['cost_x']),
+            # pd.DataFrame(self.costs.y.hist.T, columns=['cost_y']),
+            # pd.DataFrame(self.costs.u.hist.T, columns=['cost_u']),
+            # pd.DataFrame(self.costs.du.hist.T, columns=['cost_du']),
+            # pd.DataFrame(self.costs.total.hist.T, columns=['cost_total']),
+        ]
+
+        df_merged = pd.concat(dfs, axis=1)
+        df_merged.to_csv(report_dir / 'data.csv', index=False)
 
 
 if __name__ == '__main__':

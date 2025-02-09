@@ -56,7 +56,7 @@ ignore = [
   "W293",    # Blank line contains whitespace
   "PERF102", # incorrect dict iterator
   'PLC0414',
-  # "F401",    # Unused import
+  "F401",    # Unused import
   #   'B006', # Learn Python yo!
   #   'C408',  # Unnecessary dict/list call
   #   'COM819',  # Trailing commas is da bomb

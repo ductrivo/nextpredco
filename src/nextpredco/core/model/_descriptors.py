@@ -4,7 +4,7 @@ from numpy.typing import NDArray
 
 from nextpredco.core._consts import SS_VARS_DB, SS_VARS_SECONDARY
 from nextpredco.core._logger import logger
-from nextpredco.core._typing import SourceType
+from nextpredco.core._typing import Array2D, IntType, PredDType, SourceType
 from nextpredco.core.errors import (
     EmptyArrayError,
     InvalidK0ValueError,
@@ -409,6 +409,85 @@ class PhysicalVariable(SystemVariable):
         )
 
 
+class VariableViewDict:
+    def __init__(
+        self,
+        k: IntType,
+        data_full: PredDType,
+        indexes: list[IntType],
+    ):
+        self._k = k
+        self._data_full = data_full
+        self._indexes = indexes
+
+    @property
+    def val(self) -> Array2D:
+        return self.get_val(self._k)
+
+    @val.setter
+    def val(self, val: Array2D):
+        self.set_val(self._k, val)
+
+    def get_val(self, k: IntType) -> Array2D:
+        arr = self._data_full[k]
+
+        # TODO: is this necessary?
+        if len(self._indexes) == 0:
+            return np.array([[]])
+
+        if len(self._indexes) == arr.shape[0]:
+            return arr
+
+        return arr[self._indexes, :]
+
+    def set_val(
+        self,
+        k: int,
+        val: NDArray,
+        k_preds: list[int] | int | None = None,
+    ) -> None:
+        if len(self._indexes) == 0:
+            raise EmptyArrayError()
+
+        if (k_preds is None) or (k not in self._data_full):
+            self._data_full[k] = val
+        else:
+            k_preds_ = [k_preds] if isinstance(k_preds, int) else k_preds
+            self._data_full[k][self._indexes, k_preds_] = val
+
+
+class CostStructure:
+    # def __set__(self, instance, val: Array2D) -> None:
+    #     instance._data.costs_full[instance._k] = val
+
+    def __init__(self, k: IntType, data_full: PredDType) -> None:
+        self._x = VariableViewDict(k=k, data_full=data_full, indexes=[0])
+        self._u = VariableViewDict(k=k, data_full=data_full, indexes=[1])
+        self._y = VariableViewDict(k=k, data_full=data_full, indexes=[2])
+        self._du = VariableViewDict(k=k, data_full=data_full, indexes=[3])
+        self._total = VariableViewDict(k=k, data_full=data_full, indexes=[4])
+
+    @property
+    def x(self) -> VariableViewDict:
+        return self._x
+
+    @property
+    def u(self) -> VariableViewDict:
+        return self._u
+
+    @property
+    def y(self) -> VariableViewDict:
+        return self._y
+
+    @property
+    def du(self) -> VariableViewDict:
+        return self._du
+
+    @property
+    def total(self) -> VariableViewDict:
+        return self._total
+
+
 class TimeVariable:
     def __set_name__(self, owner, name: str) -> None:
         self._name = name
@@ -418,14 +497,25 @@ class TimeVariable:
         error_msg = 'Please model.t.set_val or model.t.set_hist.'
         raise AttributeError(error_msg)
 
-    def __get__(self, instance, owner) -> SystemVariableView:
+    def __get__(self, instance, owner) -> SystemVariableView | CostStructure:
         if self._name == 't':
-            arr_full = instance._data.t_full
-        elif self._name == 't_clock':
-            arr_full = instance._data.t_clock_full
+            return SystemVariableView(
+                k=instance._data.k,
+                arr_full=instance._data.t_full,
+                idx_list=[0],
+            )
 
-        return SystemVariableView(
-            k=instance._data.k,
-            arr_full=arr_full,
-            idx_list=[0],
-        )
+        if self._name == 't_clock':
+            return SystemVariableView(
+                k=instance._data.k,
+                arr_full=instance._data.t_clock_full,
+                idx_list=[0],
+            )
+
+        if self._name == 'costs':
+            return CostStructure(
+                k=instance._data.k,
+                data_full=instance._data.costs_full,
+                # idx_list=[0, 1, 2, 3],
+            )
+        raise NotAvailableAttributeError(self._name)
