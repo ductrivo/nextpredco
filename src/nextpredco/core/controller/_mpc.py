@@ -288,8 +288,12 @@ class MPC(ControllerABC):
             for key, func in self._nlp_funcs.items()
         }
 
-        self._model.predictions.k.arr = np.array([[self._model.k]])
-        self._model.predictions.t.arr = self._model.t.val
+        self._model.predictions.k.arr = (
+            self._model.k + 1 + np.arange(self._n_pred).reshape((1, -1))
+        )
+        self._model.predictions.t.arr = (
+            self._model.predictions.k.arr * self._settings.dt
+        )
         self._model.predictions.x.arr = vals['x_preds']
         # self._model.predictions.z.arr = vals['z_preds']
         self._model.predictions.u.arr = sol['x'].reshape(
@@ -301,31 +305,31 @@ class MPC(ControllerABC):
             attr = getattr(self._model.predictions.costs, key)
             attr.arr = vals[f'cost_{key}']
 
-        logger.debug(
-            'sol: %s\n'
-            'vals: %s\n'
-            'u_est_last: %s\n'
-            'x_est_last: %s\n'
-            'weights %s\n'
-            'costs: x %s, y: %s, u:%s, du: %s, total: %s\n'
-            'u_preds: %s\n'
-            'x_preds: %s\n'
-            'u.preds.val %s\n',
-            sol,
-            vals,
-            self._model.u.est.val.T,
-            self._model.x.est.val.T,
-            self._weights,
-            vals['cost_x'],
-            vals['cost_y'],
-            vals['cost_u'],
-            vals['cost_du'],
-            vals['cost_total'],
-            self._model.predictions.u.arr,
-            self._model.predictions.x.arr,
-            self._model.predictions.u.val,
-        )
+        # logger.debug(
+        #     'sol: %s\n'
+        #     'vals: %s\n'
+        #     'u_est_last: %s\n'
+        #     'x_est_last: %s\n'
+        #     'weights %s\n'
+        #     'costs: x %s, y: %s, u:%s, du: %s, total: %s\n'
+        #     'u_preds: %s\n'
+        #     'x_preds: %s\n'
+        #     'u.preds.val %s\n',
+        #     sol,
+        #     vals,
+        #     self._model.u.est.val.T,
+        #     self._model.x.est.val.T,
+        #     self._weights,
+        #     vals['cost_x'],
+        #     vals['cost_y'],
+        #     vals['cost_u'],
+        #     vals['cost_du'],
+        #     vals['cost_total'],
+        #     self._model.predictions.u.arr,
+        #     self._model.predictions.x.arr,
+        #     self._model.predictions.u.val,
+        # )
 
-        logger.debug(pretty_repr(self._model._data.predictions_full))
-        input('Press Enter to continue')
+        # logger.debug(pretty_repr(self._model._data.predictions_full))
+        # input('Press Enter to continue')
         return self._model.predictions.u.val

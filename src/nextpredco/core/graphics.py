@@ -1,3 +1,15 @@
+"""
+Plotting functions for transient simulations.
+
+This module contains functions for plotting transient simulations.
+
+Functions:
+
+- `plot_transient_multi_systems`: Plot transient simulations for multiple control systems.
+- `plot_transient`: Plot transient simulations for a single model.
+- `_plot_physical_var`: Plot a physical variable for a model.
+"""
+
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
@@ -16,14 +28,28 @@ def plot_transient_multi_systems(
     systems: dict[str, ControlSystem],
     k0: int = 0,
     kf: int | None = None,
-):
-    kf = (
-        kf
-        if kf is not None
-        else max([system.model.k for system in systems.values()])
-    )
-    one_system = len(systems) == 1
+) -> tuple[Figure, list[Axes]]:
+    """
+    Plot transient simulations for multiple control systems.
 
+    Parameters
+    ----------
+    systems : dict[str, ControlSystem]
+        Dictionary with control systems to plot.
+    k0 : int, optional
+        Initial time step for plotting, by default 0.
+    kf : int | None, optional
+        Final time step for plotting, by default None.
+
+    Returns
+    -------
+    fig : Figure
+        Figure object.
+    axs : list[Axes]
+        List of axes objects.
+    """
+
+    # Get the physical variables to plot
     all_vars: dict[str, str] = {}
     for ss_var in ['y', 'u', 'p', 'q']:
         for system in systems.values():
@@ -31,34 +57,48 @@ def plot_transient_multi_systems(
                 if name not in all_vars:
                     all_vars[name] = ss_var
 
+    # Compute the number of axes
     n_ax = len(all_vars)
 
+    # Create the figure and axes
     fig: Figure
     axs: list[Axes]
     fig, ax_ = plt.subplots(n_ax, 1, sharex=True, figsize=(12, 9))
 
     axs = ax_ if n_ax > 1 else [ax_]
 
+    # Plot the transient simulations
     for name, system in systems.items():
+        kf_ = kf if kf is not None else system.model.k
         for i, (physical_var, ss_var) in enumerate(all_vars.items()):
             ax = axs[i]
 
             attribute = system.model.get_var(physical_var)
-            t = system.model.t.get_hist(k0, system.model.k)[0, :]
-            val = attribute.est.get_hist(k0, system.model.k)[0, :]
+            t = system.model.t.get_hist(k0, kf_)[0, :]
+            val = attribute.est.get_hist(k0, kf_)[0, :]
 
             prefix = '' if i != 0 else f'{name} - '.replace('.csv', '')
 
             ax.plot(t, val, **settings.get_style(source='est', prefix=prefix))  # type: ignore[arg-type]
+            if physical_var in ['f']:
+                t_preds = system.model.predictions.t.arr[0, :]
+                val_preds = system.model.predictions.u.arr[0, :]
+                ax.plot(t_preds, val_preds)
 
             ax.set_ylabel(f'${system.model._settings.tex[physical_var]}$')
 
+        # Set the limits and labels for the axes
+        x_max_list: list[float] = []
+        x_min_list: list[float] = []
     for ax in axs:
         # Compute the same limits for all axes
         x_min = min([line.get_data()[0].min() for line in ax.get_lines()])
         x_max = max([line.get_data()[0].max() for line in ax.get_lines()])
         y_min = min([line.get_data()[1].min() for line in ax.get_lines()])
         y_max = max([line.get_data()[1].max() for line in ax.get_lines()])
+
+        x_max_list.append(x_max)
+        x_min_list.append(x_min)
 
         # Add padding to the y limits
         if np.isclose(y_min, y_max):
@@ -78,7 +118,7 @@ def plot_transient_multi_systems(
 
     axs[0].legend(ncol=len(systems), loc='best')
     axs[-1].set_xlabel('Time [s]')
-    ax.set_xlim(x_min, x_max)
+    ax.set_xlim(min(x_min_list), max(x_max_list))
 
     return fig, axs
 
@@ -87,8 +127,27 @@ def plot_transient(
     model: Model,
     k0: int = 0,
     kf: int = -1,
-):
-    kf_: int = model.k if kf == -1 else kf
+) -> tuple[Figure, list[Axes]]:
+    """
+    Plot transient simulations for a single model.
+
+    Parameters
+    ----------
+    model : Model
+        Model to plot.
+    k0 : int, optional
+        Initial time step for plotting, by default 0.
+    kf : int, optional
+        Final time step for plotting, by default -1.
+
+    Returns
+    -------
+    fig : Figure
+        Figure object.
+    ax : list[Axes]
+        List of axes objects.
+    """
+    kf_ = model.k if kf == -1 else kf
 
     # Compute the number of axes
     # TODO Remove duplicated physical vars
@@ -122,6 +181,24 @@ def _plot_physical_var(
     kf: int,
     source: str,
 ) -> None:
+    """
+    Plot a physical variable for a model.
+
+    Parameters
+    ----------
+    ax : Axes
+        Axes object to plot on.
+    model : Model
+        Model to plot.
+    name : str
+        Physical variable name.
+    k0 : int
+        Initial time step for plotting.
+    kf : int
+        Final time step for plotting.
+    source : str
+        Source of the data to plot.
+    """
     t = model.t.get_hist(0, kf)[0, :]
     val = model.get_var(name).est.get_hist(k0, kf)[0, :]
     ax.plot(t, val, label=f'{source}')

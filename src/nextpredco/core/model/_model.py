@@ -398,7 +398,7 @@ class Model:
             ),
         ]
         df_cost = self.predictions.df_cost
-        input(df_cost)
+
         df_merged = pd.concat(dfs, axis=1)
         df_merged.to_csv(report_dir / 'data.csv', index=False)
 

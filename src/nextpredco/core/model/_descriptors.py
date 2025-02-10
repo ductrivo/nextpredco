@@ -1,3 +1,4 @@
+from collections import OrderedDict as OrderDict
 from collections.abc import Callable
 from typing import Any, Generic, TypeVar
 
@@ -125,7 +126,7 @@ class VariableView:
         """
         self._k = k
         self._full_data = full_data
-        self._idx_list = idx_list
+        self._indexes = idx_list
 
     @property
     def val(self) -> Array2D:
@@ -285,15 +286,15 @@ class VariableView:
             raise ValueError(msg)
 
         # If the full data array is empty, return an empty array
-        if len(self._idx_list) == 0:
+        if len(self._indexes) == 0:
             return np.array([[]]).T
 
         # If the full data array is a view of the entire array, return a slice
-        if len(self._idx_list) == self._full_data.shape[0]:
+        if len(self._indexes) == self._full_data.shape[0]:
             return self._full_data[:, k0 : (k1 + 1)]
 
         # Otherwise, return a slice of the view
-        return self._full_data[self._idx_list, k0 : (k1 + 1)]
+        return self._full_data[self._indexes, k0 : (k1 + 1)]
 
     def set_hist(
         self,
@@ -334,12 +335,12 @@ class VariableView:
 
         # If the full data array is the same as the variable view's data array,
         # the set the values directly
-        if len(self._idx_list) == self._full_data.shape[0]:
+        if len(self._indexes) == self._full_data.shape[0]:
             self._full_data[:, k0 : (k1 + 1)] = val
         # Otherwise, set the values to the corresponding view of the variable
         # and view's data array
         else:
-            self._full_data[self._idx_list, k0 : (k1 + 1)] = val
+            self._full_data[self._indexes, k0 : (k1 + 1)] = val
 
 
 class VariableViewDict:
@@ -380,7 +381,10 @@ class VariableViewDict:
 
     @property
     def arr(self) -> Array2D:
-        return self.get_val(self._k)
+        try:
+            return self.get_val(self._k)
+        except ValueError:
+            return self.get_val(-1)
 
     @arr.setter
     def arr(self, val: Array2D) -> None:
@@ -420,6 +424,16 @@ class VariableViewDict:
         Array2D
             The value of the variable view dictionary at the specified time step.
         """
+
+        if k == -1:
+            ordered = OrderDict(self._data_full)
+            input(next(reversed(ordered.values())))
+            return next(reversed(ordered.values()))
+
+        if k not in self._data_full:
+            msg = f'The time step {k} is not in the data.'
+            raise ValueError(msg)
+
         arr = self._data_full[k]
 
         # If there are no indexes, return the entire array
@@ -814,7 +828,7 @@ class SystemCallable:
 
         # Iterate over each source to populate data and index lists
         for source in self._sources:
-            data[source], idx_list[source] = _get_full_data_and_idx_list(
+            data[source], idx_list[source] = _get_full_data_and_indexes(
                 self._instance,
                 ss_name=ss_name,
                 name=var_name,
@@ -921,7 +935,7 @@ class SystemVariable:
         idx_lists = {}
         for source in var_sources:
             # Get the full data and index lists for each source
-            arr_full, idx_list = _get_full_data_and_idx_list(
+            arr_full, idx_list = _get_full_data_and_indexes(
                 instance,
                 ss_name=var_name,
                 name=var_name,
@@ -939,7 +953,7 @@ class SystemVariable:
         )
 
 
-def _get_full_data_and_idx_list(
+def _get_full_data_and_indexes(
     instance,
     ss_name: str,
     name: str,
