@@ -11,107 +11,50 @@ from numpy.typing import ArrayLike, NDArray
 from rich.pretty import pretty_repr
 
 from nextpredco.core._consts import CONFIG_FOLDER, COST_ELEMENTS, SS_VARS_DB
+from nextpredco.core._data import ModelData
 from nextpredco.core._logger import logger
 from nextpredco.core._typing import (
     Array2D,
     ArrayType,
+    FloatType,
+    IntType,
     PredDType,
+    SourceType,
     Symbolic,
     TgridType,
 )
 from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
 from nextpredco.core.model._descriptors import (
-    PhysicalVariable,
-    ReadOnlyFloat,
-    ReadOnlyInt,
-    ReadOnlySource,
+    ReadOnly2,
+    StateSpaceStructure,
+    SystemCallable,
     SystemVariable,
-    TimeVariable,
-    VariableSource,
 )
 from nextpredco.core.settings import ModelSettings
 
 
-@dataclass
-class ModelData:
-    k: int
-    k_clock: int
-    k_max: int
-    k_clock_max: int
-
-    t_full: NDArray
-    t_clock_full: NDArray
-    x_est_full: NDArray
-    z_est_full: NDArray
-    upq_est_full: NDArray
-
-    x_goal_full: NDArray | None = field(default=None)
-    z_goal_full: NDArray | None = field(default=None)
-    upq_goal_full: NDArray | None = field(default=None)
-
-    x_act_full: NDArray | None = field(default=None)
-    z_act_full: NDArray | None = field(default=None)
-    upq_act_full: NDArray | None = field(default=None)
-
-    x_meas_full: NDArray | None = field(default=None)
-    z_meas_full: NDArray | None = field(default=None)
-    upq_meas_full: NDArray | None = field(default=None)
-
-    x_filt_full: NDArray | None = field(default=None)
-    z_filt_full: NDArray | None = field(default=None)
-    upq_filt_full: NDArray | None = field(default=None)
-
-    x_goal_clock_full: NDArray | None = field(default=None)
-    z_goal_clock_full: NDArray | None = field(default=None)
-    upq_goal_clock_full: NDArray | None = field(default=None)
-
-    x_act_clock_full: NDArray | None = field(default=None)
-    z_act_clock_full: NDArray | None = field(default=None)
-    upq_act_clock_full: NDArray | None = field(default=None)
-
-    x_est_clock_full: NDArray | None = field(default=None)
-    z_est_clock_full: NDArray | None = field(default=None)
-    upq_est_clock_full: NDArray | None = field(default=None)
-
-    x_meas_clock_full: NDArray | None = field(default=None)
-    z_meas_clock_full: NDArray | None = field(default=None)
-    upq_meas_clock_full: NDArray | None = field(default=None)
-
-    x_filt_clock_full: NDArray | None = field(default=None)
-    z_filt_clock_full: NDArray | None = field(default=None)
-    upq_filt_clock_full: NDArray | None = field(default=None)
-
-    # MPC predictions
-    k_preds_full: PredDType = field(default_factory=dict)
-    x_preds_full: PredDType = field(default_factory=dict)
-    u_preds_full: PredDType = field(default_factory=dict)
-
-    # {k: {x/y/u/du: value}}
-    costs_full: PredDType = field(default_factory=dict)
-
-    @property
-    def size(self) -> int:
-        size = 0
-        for field_name, field_value in self.__dict__.items():
-            if isinstance(field_value, np.ndarray):
-                size += field_value.nbytes
-            elif isinstance(field_value, dict):
-                size += sys.getsizeof(field_value)
-                for array in field_value.values():
-                    size += array.nbytes
-            else:
-                size += sys.getsizeof(field_value)
-        return size
-
-
 class Model:
     # Settings
-    dt = ReadOnlyFloat()
-    t_max = ReadOnlyFloat()
+    dt = ReadOnly2[FloatType]('settings')
+    t_max = ReadOnly2[FloatType]('settings')
 
-    k_clock = ReadOnlyInt()
-    dt_clock = ReadOnlyFloat()
-    sources = ReadOnlySource()
+    k_clock = ReadOnly2[IntType]('settings')
+    dt_clock = ReadOnly2[FloatType]('settings')
+    sources = ReadOnly2[SourceType]('settings')
+
+    x_vars = ReadOnly2[list[str]]('settings')
+    z_vars = ReadOnly2[list[str]]('settings')
+    u_vars = ReadOnly2[list[str]]('settings')
+    p_vars = ReadOnly2[list[str]]('settings')
+    q_vars = ReadOnly2[list[str]]('settings')
+    y_vars = ReadOnly2[list[str]]('settings')
+    m_vars = ReadOnly2[list[str]]('settings')
+    o_vars = ReadOnly2[list[str]]('settings')
+    upq_vars = ReadOnly2[list[str]]('settings')
+
+    k = ReadOnly2[IntType]('data')
+    k_max = ReadOnly2[IntType]('data')
+    k_clock_max = ReadOnly2[IntType]('data')
 
     x = SystemVariable()
     z = SystemVariable()
@@ -121,11 +64,13 @@ class Model:
     y = SystemVariable()
     m = SystemVariable()
     o = SystemVariable()
-    _physical_var = PhysicalVariable()
     upq = SystemVariable()
-    t = TimeVariable()
-    t_clock = TimeVariable()
-    costs = TimeVariable()
+
+    t = SystemVariable()
+    t_clock = SystemVariable()
+    predictions = SystemVariable()
+
+    _physical_var = SystemCallable()
 
     def __init__(
         self,
@@ -141,7 +86,6 @@ class Model:
         self._data = self._create_data()
 
         # Load equations
-        # TODO: move to data
         self._equations = self._create_equations()
 
         # Load integrator
@@ -156,7 +100,7 @@ class Model:
 
     def _create_data(self) -> ModelData:
         # Create data holder
-        data: dict[str, int | NDArray] = {}
+        data: dict[str, IntType | Array2D] = {}
 
         # Extract time information
         data['k'] = 0
@@ -294,8 +238,8 @@ class Model:
 
     def get_all_vars(
         self, **ss_vars: ArrayType
-    ) -> dict[str, ArrayType | float]:
-        all_vars: dict[str, ArrayType | float] = {}
+    ) -> dict[str, ArrayType | FloatType]:
+        all_vars: dict[str, ArrayType | FloatType] = {}
 
         for ss_var in ['x', 'z', 'u', 'p', 'q', 'upq', 'const']:
             vars_list: list[str] = getattr(self._settings, f'{ss_var}_vars')
@@ -349,80 +293,44 @@ class Model:
 
         # TODO: try other ways to update time
         # Try case to work with t_clock
-        self.t.set_val(k=self._data.k, val=self._data.k * self._settings.dt)
-
-    @property
-    def k(self) -> int:
-        return self._data.k
-
-    @property
-    def settings(self) -> ModelSettings | None:
-        return self._settings
-
-    @property
-    def k_max(self) -> int:
-        return self._data.k_max
-
-    @property
-    def k_clock_max(self) -> int:
-        return self._data.k_clock_max
-
-    @property
-    def x_vars(self) -> list[str]:
-        return self._settings.x_vars
-
-    @property
-    def z_vars(self) -> list[str]:
-        return self._settings.z_vars
-
-    @property
-    def u_vars(self) -> list[str]:
-        return self._settings.u_vars
-
-    @property
-    def p_vars(self) -> list[str]:
-        return self._settings.p_vars
-
-    @property
-    def q_vars(self) -> list[str]:
-        return self._settings.q_vars
-
-    @property
-    def y_vars(self) -> list[str]:
-        return self._settings.y_vars
-
-    @property
-    def m_vars(self) -> list[str]:
-        return self._settings.m_vars
-
-    @property
-    def o_vars(self) -> list[str]:
-        return self._settings.o_vars
-
-    @property
-    def upq_vars(self) -> list[str]:
-        return self._settings.upq_vars
+        self.t.set_val(k=self.k, val=np.array([[self.k * self.dt]]))
 
     def create_data_preds_full(
         self,
         k_preds_full: PredDType | None = None,
+        t_preds_full: PredDType | None = None,
         x_preds_full: PredDType | None = None,
         u_preds_full: PredDType | None = None,
-        costs_full: PredDType | None = None,
+        cost_x_full: PredDType | None = None,
+        cost_y_full: PredDType | None = None,
+        cost_u_full: PredDType | None = None,
+        cost_du_full: PredDType | None = None,
     ) -> None:
         if k_preds_full is not None:
-            self._data.k_preds_full = k_preds_full
+            self._data.predictions_full.k = k_preds_full
+
+        if t_preds_full is not None:
+            self._data.predictions_full.t = t_preds_full
 
         if x_preds_full is not None:
-            self._data.x_preds_full = x_preds_full
+            self._data.predictions_full.x = x_preds_full
 
         if u_preds_full is not None:
-            self._data.u_preds_full = u_preds_full
+            self._data.predictions_full.u = u_preds_full
 
-        if costs_full is not None:
-            self._data.costs_full = costs_full
+        if cost_x_full is not None:
+            self._data.predictions_full.cost_x = cost_x_full
 
-    def get_var(self, var_: str) -> VariableSource:
+        if cost_y_full is not None:
+            self._data.predictions_full.cost_y = cost_y_full
+
+        if cost_u_full is not None:
+            self._data.predictions_full.cost_u = cost_u_full
+
+        if cost_du_full is not None:
+            self._data.predictions_full.cost_du = cost_du_full
+
+    def get_var(self, var_: str) -> StateSpaceStructure:
         return self._physical_var(var_)
 
     def n(self, ss_var: str) -> int:
@@ -430,9 +338,9 @@ class Model:
 
     def make_step(
         self,
-        u: NDArray | None = None,
-        p: NDArray | None = None,
-        q: NDArray | None = None,
+        u: Array2D | None = None,
+        p: Array2D | None = None,
+        q: Array2D | None = None,
     ) -> None:
         self._update_k_and_t()
 
@@ -447,13 +355,13 @@ class Model:
 
     def compute_xz(
         self,
-        x0: NDArray | None = None,
-        z0: NDArray | None = None,
-        u: NDArray | None = None,
-        p: NDArray | None = None,
-        q: NDArray | None = None,
+        x0: Array2D | None = None,
+        z0: Array2D | None = None,
+        u: Array2D | None = None,
+        p: Array2D | None = None,
+        q: Array2D | None = None,
         t_grid: TgridType | None = None,
-    ) -> tuple[NDArray, NDArray, NDArray, NDArray]:
+    ) -> tuple[Array2D, Array2D, Array2D, Array2D]:
         x0 = self.x.est.last if x0 is None else x0
         z0 = self.z.est.last if z0 is None else z0
 
@@ -488,13 +396,9 @@ class Model:
             pd.DataFrame(
                 self.upq.est.get_hist(k0, kf).T, columns=self.upq_vars
             ),
-            # pd.DataFrame(self.costs.x.hist.T, columns=['cost_x']),
-            # pd.DataFrame(self.costs.y.hist.T, columns=['cost_y']),
-            # pd.DataFrame(self.costs.u.hist.T, columns=['cost_u']),
-            # pd.DataFrame(self.costs.du.hist.T, columns=['cost_du']),
-            # pd.DataFrame(self.costs.total.hist.T, columns=['cost_total']),
         ]
-
+        df_cost = self.predictions.df_cost
+        input(df_cost)
         df_merged = pd.concat(dfs, axis=1)
         df_merged.to_csv(report_dir / 'data.csv', index=False)
 

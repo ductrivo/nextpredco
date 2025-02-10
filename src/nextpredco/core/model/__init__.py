@@ -1,8 +1,8 @@
 from nextpredco.core.model._descriptors import (
-    SystemVariableView as SystemVariableView,
+    StateSpaceStructure as StateSpaceStructure,
 )
 from nextpredco.core.model._descriptors import (
-    VariableSource as VariableSource,
+    VariableView as VariableView,
 )
 from nextpredco.core.model._model import Model as Model
 from nextpredco.core.model._plant import Plant as Plant

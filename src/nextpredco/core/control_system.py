@@ -64,7 +64,7 @@ class ControlSystem:
         # input('Press Enter to start simulation')
 
         for k in range(self.model.k_max):
-            self.model.y.goal.val = 0.6
+            self.model.y.goal.val = np.array([[0.6]])
             u = self.controller.make_step()
             self.model.make_step(u=u)
             # logger.debug('control u = %s', u.T)

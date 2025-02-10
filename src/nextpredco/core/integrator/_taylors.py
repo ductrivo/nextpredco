@@ -64,7 +64,7 @@ class Taylor(IntegratorABC):
             t_grid2 = np.arange(min_, max_ + 1) * self._settings.h
 
         x_arr = []
-        x = x0
+        x: ArrayType | ca.DM = x0
         k = 0
         for i in range(len(t_grid2) - 1):
             dt = t_grid2[i + 1] - t_grid2[i]
@@ -83,6 +83,8 @@ class Taylor(IntegratorABC):
         if isinstance(x0, Symbolic):
             return (x, np.array([[]]).T, ca.hcat(x_arr), np.array([[]]).T)
 
+        if isinstance(x, ca.DM):
+            x = x.full()
         return (x, np.array([[]]).T, np.hstack(x_arr), np.array([[]]).T)
 
     @staticmethod

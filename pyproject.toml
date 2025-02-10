@@ -47,6 +47,7 @@ line-length = 79
 exclude = ["scripts/try_dompc/CSTR.ipynb"]
 [tool.ruff.lint]
 ignore = [
+  'E501',
   'COM812',
   'W191',    # Indentation contains tabs
   "I001",    # isort

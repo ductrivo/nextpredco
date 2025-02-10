@@ -51,7 +51,7 @@ def plot_transient_multi_systems(
 
             ax.plot(t, val, **settings.get_style(source='est', prefix=prefix))  # type: ignore[arg-type]
 
-            ax.set_ylabel(f'${system.model.settings.tex[physical_var]}$')
+            ax.set_ylabel(f'${system.model._settings.tex[physical_var]}$')
 
     for ax in axs:
         # Compute the same limits for all axes

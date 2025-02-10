@@ -4,13 +4,14 @@ from typing import override
 import casadi as ca
 import numpy as np
 from numpy.typing import ArrayLike, NDArray
+from rich.pretty import pretty_repr as pretty_repr
 
 from nextpredco.core._consts import COST_ELEMENTS
 from nextpredco.core._logger import logger
-from nextpredco.core._typing import ArrayType, Symbolic
+from nextpredco.core._typing import ArrayType, IntType, Symbolic
 from nextpredco.core.controller import ControllerABC
 from nextpredco.core.model import Model
-from nextpredco.core.model._descriptors import ReadOnlyInt
+from nextpredco.core.model._descriptors import ReadOnly2
 from nextpredco.core.settings import (
     IntegratorSettings,
     MPCSettings,
@@ -19,7 +20,7 @@ from nextpredco.core.settings import (
 
 
 class MPC(ControllerABC):
-    n_pred = ReadOnlyInt()
+    n_pred = ReadOnly2[IntType]()
 
     def __init__(
         self,
@@ -57,28 +58,35 @@ class MPC(ControllerABC):
             dtype=int,
         )
 
-        k_preds = {
-            k: k + np.arange(self.n_pred, dtype=int) + 1 for k in k_stamps
-        }
+        # k_preds = {k: np.zeros((1, self.n_pred)) for k in k_stamps}
 
-        u_preds = {
-            k: np.zeros((self.model.n('u'), self.n_pred)) for k in k_stamps
-        }
-        x_preds = {
-            k: np.zeros((self.model.n('x'), self.n_pred)) for k in k_stamps
-        }
+        # t_preds = {k: np.zeros((1, self.n_pred)) for k in k_stamps}
 
-        costs_full = {
-            k: np.zeros((len(COST_ELEMENTS) + 1, self.n_pred))
-            for k in k_stamps
-        }
+        # u_preds = {
+        #     k: np.zeros((self.model.n('u'), self.n_pred)) for k in k_stamps
+        # }
+        # x_preds = {
+        #     k: np.zeros((self.model.n('x'), self.n_pred)) for k in k_stamps
+        # }
 
-        self._model.settings.sources.append('preds')
+        # costs_full = {
+        #     k: np.zeros((len(COST_ELEMENTS), self.n_pred)) for k in k_stamps
+        # }
+
+        # self._model.create_data_preds_full(
+        #     k_preds_full=k_preds,
+        #     t_preds_full=t_preds,
+        #     u_preds_full=u_preds,
+        #     x_preds_full=x_preds,
+        #     costs_full=costs_full,
+        # )
+
         self._model.create_data_preds_full(
-            k_preds_full=k_preds,
-            u_preds_full=u_preds,
-            x_preds_full=x_preds,
-            costs_full=costs_full,
+            # k_preds_full={},
+            # t_preds_full={},
+            # u_preds_full={},
+            # x_preds_full={},
+            # costs_full={},
         )
 
     def _create_nlp_solver(self):
@@ -204,12 +212,9 @@ class MPC(ControllerABC):
         costs = self.compute_costs(x_preds, u_preds, x_goal, u_goal, u0)
 
         constraints: list[Symbolic] = []
-        constraints_lb: list[Symbolic] = []
-        constraints_ub: list[Symbolic] = []
         for k in range(x_preds.shape[1]):
-            constraints.append(x_preds[:, k])
-            constraints_lb.append(x_lb)
-            constraints_ub.append(x_ub)
+            constraints.append(x_preds[:, k] - x_lb)
+            constraints.append(x_lb - x_preds[:, k])
 
         # Create nlp info
         params = ca.vcat(
@@ -218,14 +223,12 @@ class MPC(ControllerABC):
         nlp = {
             'x': u_pred_vec,
             'f': costs['y'],
-            'g': ca.vcat(constraints),
+            # 'g': ca.vcat(constraints),
             'p': params,
         }
 
         nlp_outputs = {
             'x_preds': x_preds,
-            'g_lb': ca.vcat(constraints_lb),
-            'g_ub': ca.vcat(constraints_ub),
             'u_lb': ca.vcat([u_lb] * self._n_pred),
             'u_ub': ca.vcat([u_ub] * self._n_pred),
         }
@@ -274,46 +277,55 @@ class MPC(ControllerABC):
             p=params,
             lbx=self._nlp_funcs['u_lb'](u_guess, params),
             ubx=self._nlp_funcs['u_ub'](u_guess, params),
-            lbg=self._nlp_funcs['g_lb'](u_guess, params),
-            ubg=self._nlp_funcs['g_ub'](u_guess, params),
+            ubg=0,
         )
 
         sol: dict[str, NDArray]
         sol = {key: val.full() for key, val in sol_.items()}
-
-        self._model.u.preds.horizon = sol['x'].reshape(
-            (-1, self._n_pred), order='F'
-        )
 
         vals = {
             key: func(sol['x'], params).full()
             for key, func in self._nlp_funcs.items()
         }
 
-        self.model.x.preds.horizon = vals['x_preds']
+        self._model.predictions.k.arr = np.array([[self._model.k]])
+        self._model.predictions.t.arr = self._model.t.val
+        self._model.predictions.x.arr = vals['x_preds']
+        # self._model.predictions.z.arr = vals['z_preds']
+        self._model.predictions.u.arr = sol['x'].reshape(
+            (-1, self._n_pred),
+            order='F',
+        )
 
         for key in [*COST_ELEMENTS]:
-            getattr(self.model.costs, key).val = vals[f'cost_{key}']
+            attr = getattr(self._model.predictions.costs, key)
+            attr.arr = vals[f'cost_{key}']
 
-        # logger.debug(
-        #     'u_est_last: %s\n'
-        #     'x_est_last: %s\n'
-        #     'weights %s\n'
-        #     'costs: x %s, y: %s, u:%s, du: %s, total: %s\n'
-        #     'u_preds: %s\n'
-        #     'x_preds: %s\n'
-        #     'u.preds.val %s\n',
-        #     self._model.u.est.last.T,
-        #     self._model.x.est.last.T,
-        #     self._weights,
-        #     vals['cost_x'],
-        #     vals['cost_y'],
-        #     vals['cost_u'],
-        #     vals['cost_du'],
-        #     vals['cost_total'],
-        #     self._model.u.preds.horizon,
-        #     self._model.x.preds.horizon,
-        #     self._model.u.preds.val,
-        # )
-        # input('Press Enter to continue')
-        return self._model.u.preds.val
+        logger.debug(
+            'sol: %s\n'
+            'vals: %s\n'
+            'u_est_last: %s\n'
+            'x_est_last: %s\n'
+            'weights %s\n'
+            'costs: x %s, y: %s, u:%s, du: %s, total: %s\n'
+            'u_preds: %s\n'
+            'x_preds: %s\n'
+            'u.preds.val %s\n',
+            sol,
+            vals,
+            self._model.u.est.val.T,
+            self._model.x.est.val.T,
+            self._weights,
+            vals['cost_x'],
+            vals['cost_y'],
+            vals['cost_u'],
+            vals['cost_du'],
+            vals['cost_total'],
+            self._model.predictions.u.arr,
+            self._model.predictions.x.arr,
+            self._model.predictions.u.val,
+        )
+
+        logger.debug(pretty_repr(self._model._data.predictions_full))
+        input('Press Enter to continue')
+        return self._model.predictions.u.val

@@ -10,7 +10,7 @@ from nextpredco.core._consts import (
 )
 from nextpredco.core._logger import logger
 from nextpredco.core.errors import DescriptorSetError, MemoryAddressError
-from nextpredco.core.model import Model, SystemVariableView
+from nextpredco.core.model import Model, VariableView
 
 logger.setLevel(logging.INFO)
 
@@ -37,7 +37,7 @@ def test_address_matching_full(test_id: int):
 
                 # get the attribute values
                 arr_full = getattr(model, f'_{ss_var}_{source}_full')
-                descriptor_source: SystemVariableView = getattr(
+                descriptor_source: VariableView = getattr(
                     getattr(model, ss_var),
                     source,
                 )
@@ -92,7 +92,7 @@ def test_address_matching_full(test_id: int):
 def check_set_val(
     k: int,
     arr_view: NDArray,
-    descriptor_source: SystemVariableView,
+    descriptor_source: VariableView,
     descriptor_view: NDArray,
     name: str,
 ):
@@ -114,7 +114,7 @@ def check_set_get_hist(
     k0: int,
     k: int,
     arr_view: NDArray,
-    descriptor_source: SystemVariableView,
+    descriptor_source: VariableView,
     descriptor_view: NDArray,
     name: str,
 ):
