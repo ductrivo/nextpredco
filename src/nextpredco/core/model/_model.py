@@ -2,6 +2,7 @@ import importlib.util
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from functools import reduce as reduce
 from pathlib import Path
 
 import casadi as ca
@@ -28,6 +29,8 @@ from nextpredco.core.model._descriptors import (
     ReadOnly2,
     StateSpaceStructure,
     SystemCallable,
+    SystemPredictions,
+    SystemTime,
     SystemVariable,
 )
 from nextpredco.core.settings import ModelSettings
@@ -66,11 +69,14 @@ class Model:
     o = SystemVariable()
     upq = SystemVariable()
 
-    t = SystemVariable()
-    t_clock = SystemVariable()
-    predictions = SystemVariable()
+    t = SystemTime()
+    t_clock = SystemTime()
+    predictions = SystemPredictions()
 
     _physical_var = SystemCallable()
+
+    settings = ReadOnly2[ModelSettings]()
+    data = ReadOnly2[ModelData]()
 
     def __init__(
         self,
@@ -295,40 +301,40 @@ class Model:
         # Try case to work with t_clock
         self.t.set_val(k=self.k, val=np.array([[self.k * self.dt]]))
 
-    def create_data_preds_full(
-        self,
-        k_preds_full: PredDType | None = None,
-        t_preds_full: PredDType | None = None,
-        x_preds_full: PredDType | None = None,
-        u_preds_full: PredDType | None = None,
-        cost_x_full: PredDType | None = None,
-        cost_y_full: PredDType | None = None,
-        cost_u_full: PredDType | None = None,
-        cost_du_full: PredDType | None = None,
-    ) -> None:
-        if k_preds_full is not None:
-            self._data.predictions_full.k = k_preds_full
+    # def create_data_preds_full(
+    #     self,
+    #     k_preds_full: PredDType | None = None,
+    #     t_preds_full: PredDType | None = None,
+    #     x_preds_full: PredDType | None = None,
+    #     u_preds_full: PredDType | None = None,
+    #     cost_x_full: PredDType | None = None,
+    #     cost_y_full: PredDType | None = None,
+    #     cost_u_full: PredDType | None = None,
+    #     cost_du_full: PredDType | None = None,
+    # ) -> None:
+    #     if k_preds_full is not None:
+    #         self._data.predictions_full.k = k_preds_full
 
-        if t_preds_full is not None:
-            self._data.predictions_full.t = t_preds_full
+    #     if t_preds_full is not None:
+    #         self._data.predictions_full.t = t_preds_full
 
-        if x_preds_full is not None:
-            self._data.predictions_full.x = x_preds_full
+    #     if x_preds_full is not None:
+    #         self._data.predictions_full.x = x_preds_full
 
-        if u_preds_full is not None:
-            self._data.predictions_full.u = u_preds_full
+    #     if u_preds_full is not None:
+    #         self._data.predictions_full.u = u_preds_full
 
-        if cost_x_full is not None:
-            self._data.predictions_full.cost_x = cost_x_full
+    #     if cost_x_full is not None:
+    #         self._data.predictions_full.cost_x = cost_x_full
 
-        if cost_y_full is not None:
-            self._data.predictions_full.cost_y = cost_y_full
+    #     if cost_y_full is not None:
+    #         self._data.predictions_full.cost_y = cost_y_full
 
-        if cost_u_full is not None:
-            self._data.predictions_full.cost_u = cost_u_full
+    #     if cost_u_full is not None:
+    #         self._data.predictions_full.cost_u = cost_u_full
 
-        if cost_du_full is not None:
-            self._data.predictions_full.cost_du = cost_du_full
+    #     if cost_du_full is not None:
+    #         self._data.predictions_full.cost_du = cost_du_full
 
     def get_var(self, var_: str) -> StateSpaceStructure:
         return self._physical_var(var_)
@@ -388,19 +394,33 @@ class Model:
         report_dir = Path().cwd() / 'report'
         report_dir.mkdir(exist_ok=True)
 
-        dfs: list[pd.DataFrame] = [
+        dfs_: list[pd.DataFrame] = [
             pd.DataFrame(np.arange(self.k + 1), columns=['k']),
-            pd.DataFrame(self.t.hist[0, :], columns=['t']),
-            pd.DataFrame(self.x.est.get_hist(k0, kf).T, columns=self.x_vars),
-            pd.DataFrame(self.z.est.get_hist(k0, kf).T, columns=self.z_vars),
-            pd.DataFrame(
-                self.upq.est.get_hist(k0, kf).T, columns=self.upq_vars
-            ),
+            self.t.df,
+            self.x.est.df,
+            self.u.est.df,
+            self.p.est.df,
+            self.q.est.df,
         ]
-        df_cost = self.predictions.df_cost
+        dfs = pd.concat(dfs_, axis=1)
+        df_merged = pd.merge(
+            dfs,
+            self.predictions.costs.df,
+            on='k',
+            how='outer',
+        )
 
-        df_merged = pd.concat(dfs, axis=1)
-        df_merged.to_csv(report_dir / 'data.csv', index=False)
+        df_merged.to_csv(
+            report_dir / 'data.csv',
+            index=False,
+            float_format='%.3f',
+        )
+
+        self.predictions.df.to_csv(
+            report_dir / 'predictions.csv',
+            index=False,
+            float_format='%.3f',
+        )
 
 
 if __name__ == '__main__':

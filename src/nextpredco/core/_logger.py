@@ -32,9 +32,7 @@ logger = logging.getLogger('nextpredco')
 logger.setLevel(logging.DEBUG)  # Set the log level
 
 # Create formatters
-simple_formatter = logging.Formatter(
-    '%(name)s - [in %(pathname)s:%(lineno)d]:- %(message)s'
-)
+simple_formatter = logging.Formatter('%(name)s:- %(message)s')
 standard_formatter = logging.Formatter(
     '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
 )

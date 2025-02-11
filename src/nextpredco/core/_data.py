@@ -1,4 +1,5 @@
 import sys
+from collections import OrderedDict as OrderedDict
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -10,19 +11,21 @@ from nextpredco.core._typing import (
     PredDType,
 )
 
+type PredictionsType = OrderedDict[IntType, PredictionsData]
+
 
 @dataclass
 class PredictionsData:
-    k: PredDType = field(default_factory=dict)
-    t: PredDType = field(default_factory=dict)
-    x: PredDType = field(default_factory=dict)
-    # z: PredDType = field(default_factory=dict)
-    u: PredDType = field(default_factory=dict)
-    cost_x: PredDType = field(default_factory=dict)
-    cost_y: PredDType = field(default_factory=dict)
-    cost_u: PredDType = field(default_factory=dict)
-    cost_du: PredDType = field(default_factory=dict)
-    cost_total: PredDType = field(default_factory=dict)
+    k: PredDType = field(default_factory=OrderedDict)
+    t: PredDType = field(default_factory=OrderedDict)
+    x: PredDType = field(default_factory=OrderedDict)
+    z: PredDType = field(default_factory=OrderedDict)
+    u: PredDType = field(default_factory=OrderedDict)
+    cost_x: PredDType = field(default_factory=OrderedDict)
+    cost_y: PredDType = field(default_factory=OrderedDict)
+    cost_u: PredDType = field(default_factory=OrderedDict)
+    cost_du: PredDType = field(default_factory=OrderedDict)
+    cost_total: PredDType = field(default_factory=OrderedDict)
 
 
 @dataclass
@@ -38,46 +41,50 @@ class ModelData:
     z_est_full: Array2D
     upq_est_full: Array2D
 
-    x_goal_full: Array2D | None = field(default=None)
-    z_goal_full: Array2D | None = field(default=None)
-    upq_goal_full: Array2D | None = field(default=None)
+    x_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_act_full: Array2D | None = field(default=None)
-    z_act_full: Array2D | None = field(default=None)
-    upq_act_full: Array2D | None = field(default=None)
+    x_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_meas_full: Array2D | None = field(default=None)
-    z_meas_full: Array2D | None = field(default=None)
-    upq_meas_full: Array2D | None = field(default=None)
+    x_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_filt_full: Array2D | None = field(default=None)
-    z_filt_full: Array2D | None = field(default=None)
-    upq_filt_full: Array2D | None = field(default=None)
+    x_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_goal_clock_full: Array2D | None = field(default=None)
-    z_goal_clock_full: Array2D | None = field(default=None)
-    upq_goal_clock_full: Array2D | None = field(default=None)
+    x_goal_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_goal_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_goal_clock_full: Array2D = field(
+        default_factory=lambda: np.array([[]])
+    )
 
-    x_act_clock_full: Array2D | None = field(default=None)
-    z_act_clock_full: Array2D | None = field(default=None)
-    upq_act_clock_full: Array2D | None = field(default=None)
+    x_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_est_clock_full: Array2D | None = field(default=None)
-    z_est_clock_full: Array2D | None = field(default=None)
-    upq_est_clock_full: Array2D | None = field(default=None)
+    x_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
 
-    x_meas_clock_full: Array2D | None = field(default=None)
-    z_meas_clock_full: Array2D | None = field(default=None)
-    upq_meas_clock_full: Array2D | None = field(default=None)
+    x_meas_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_meas_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_meas_clock_full: Array2D = field(
+        default_factory=lambda: np.array([[]])
+    )
 
-    x_filt_clock_full: Array2D | None = field(default=None)
-    z_filt_clock_full: Array2D | None = field(default=None)
-    upq_filt_clock_full: Array2D | None = field(default=None)
+    x_filt_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    z_filt_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    upq_filt_clock_full: Array2D = field(
+        default_factory=lambda: np.array([[]])
+    )
 
     # MPC predictions
-    predictions_full: PredictionsData | None = field(
-        default_factory=PredictionsData
-    )
+    predictions_full: PredictionsData = field(default_factory=PredictionsData)
 
     @property
     def size(self) -> IntType:

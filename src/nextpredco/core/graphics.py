@@ -73,17 +73,24 @@ def plot_transient_multi_systems(
         for i, (physical_var, ss_var) in enumerate(all_vars.items()):
             ax = axs[i]
 
-            attribute = system.model.get_var(physical_var)
+            if physical_var in system.model.x_vars + system.model.u_vars:
+                t_preds = system.model.predictions.t.arr.T
+                val_preds = system.model.predictions.get_var(
+                    physical_var
+                ).arr.T
+
+                ax.plot(
+                    t_preds,
+                    val_preds,
+                    **settings.get_style(source='pred'),  # type: ignore[arg-type]
+                )
+
+            attr = system.model.get_var(physical_var)
             t = system.model.t.get_hist(k0, kf_)[0, :]
-            val = attribute.est.get_hist(k0, kf_)[0, :]
+            val = attr.est.get_hist(k0, kf_)[0, :]
 
             prefix = '' if i != 0 else f'{name} - '.replace('.csv', '')
-
             ax.plot(t, val, **settings.get_style(source='est', prefix=prefix))  # type: ignore[arg-type]
-            if physical_var in ['f']:
-                t_preds = system.model.predictions.t.arr[0, :]
-                val_preds = system.model.predictions.u.arr[0, :]
-                ax.plot(t_preds, val_preds)
 
             ax.set_ylabel(f'${system.model._settings.tex[physical_var]}$')
 

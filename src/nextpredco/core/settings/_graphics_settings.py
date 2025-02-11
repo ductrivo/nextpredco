@@ -8,7 +8,15 @@ class GraphicsSettings:
     est_style: MatplotlibPlotStyle = field(
         default_factory=lambda: {
             'label': 'Estimated',
-            # 'color': 'blue',
+            'color': 'blue',
+            'linewidth': 1,
+        }
+    )
+
+    pred_style: MatplotlibPlotStyle = field(
+        default_factory=lambda: {
+            'label': 'Estimated',
+            'color': 'red',
             'linewidth': 1,
         }
     )
@@ -16,7 +24,7 @@ class GraphicsSettings:
     act_style: MatplotlibPlotStyle = field(
         default_factory=lambda: {
             'label': 'Actual',
-            # 'color': 'red',
+            'color': 'red',
             'linestyle': ':',
             'linewidth': 1,
         }
@@ -25,7 +33,7 @@ class GraphicsSettings:
     meas_style: MatplotlibPlotStyle = field(
         default_factory=lambda: {
             'label': 'Measured',
-            # 'color': 'lime',
+            'color': 'lime',
             'linestyle': 'dotted',
             'alpha': 0.9,
         }
@@ -33,7 +41,7 @@ class GraphicsSettings:
 
     goal_style: MatplotlibPlotStyle = field(
         default_factory=lambda: {
-            # 'color': 'black',
+            'color': 'black',
             'linewidth': 0.5,
             'linestyle': (0, (5, 5)),
         }
@@ -44,6 +52,10 @@ class GraphicsSettings:
             est_style = self.est_style.copy()
             est_style['label'] = f'{prefix}{est_style["label"]}'
             return est_style
+        if source == 'pred':
+            pred_style = self.pred_style.copy()
+            pred_style['label'] = f'{prefix}{pred_style["label"]}'
+            return pred_style
         if source == 'act':
             act_style = self.act_style.copy()
             act_style['label'] = f'{prefix}{act_style["label"]}'

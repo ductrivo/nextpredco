@@ -1,6 +1,7 @@
-from collections import OrderedDict as OrderDict
+from collections import OrderedDict as OrderedDict
 from collections.abc import Callable
-from typing import Any, Generic, TypeVar
+from functools import reduce as reduce
+from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
 import numpy as np
 import pandas as pd
@@ -31,6 +32,14 @@ from nextpredco.core.errors import (
     ReadOnlyAttributeError,
 )
 
+if TYPE_CHECKING:
+    from nextpredco.core.model import (  # Only imported for type hints
+        Model,
+    )
+
+from nextpredco.core._data import ModelData
+from nextpredco.core.settings import ModelSettings
+
 ReadOnlyType = TypeVar(
     'ReadOnlyType',
     SourceType,
@@ -40,7 +49,78 @@ ReadOnlyType = TypeVar(
     'VariableView',
     'VariableViewDict',
     'CostStructure',
+    ModelSettings,
+    ModelData,
 )
+
+
+def _get_full_data_and_indexes(
+    instance,
+    ss_name: str,
+    name: str,
+    source: str,
+) -> tuple[Array2D, list[IntType]]:
+    """Get the full data and index list for a state space variable.
+
+    Parameters
+    ----------
+    instance : Model
+        The model instance.
+    ss_name : str
+        The name of the state space (x, z, or upq).
+    name : str
+        The name of the variable.
+    source : str
+        The source of the variable (e.g., "est", "meas", etc.).
+
+    Returns
+    -------
+    full_data : Array2D
+        The full data array.
+    indexes : list[IntType]
+        The index list.
+    """
+
+    # Define the variable names
+    x_vars = instance._settings.x_vars
+    z_vars = instance._settings.z_vars
+    upq_vars = instance._settings.upq_vars
+
+    # Get the full data
+    if name in ['x', *x_vars, *SS_VARS_SECONDARY]:
+        full_data = getattr(instance._data, f'x_{source}_full')
+    elif name in ['z', *z_vars]:
+        full_data = getattr(instance._data, f'z_{source}_full')
+    elif name in ['u', 'p', 'q', 'upq', *upq_vars]:
+        full_data = getattr(instance._data, f'upq_{source}_full')
+    else:
+        raise NotAvailableAttributeError(name)
+
+    # Get the index list
+    if name in SS_VARS_DB:
+        indexes = list(range(full_data.shape[0]))
+
+    elif name in ['u', 'p', 'q']:
+        vars_ = getattr(instance._settings, f'{name}_vars')
+        indexes = [upq_vars.index(var_) for var_ in vars_]
+
+    elif name in SS_VARS_SECONDARY:
+        vars_ = getattr(instance._settings, f'{name}_vars')
+        indexes = [x_vars.index(var_) for var_ in vars_]
+
+    elif name in x_vars:
+        indexes = [x_vars.index(name)]
+
+    elif name in z_vars:
+        indexes = [z_vars.index(name)]
+
+    elif name in upq_vars:
+        indexes = [upq_vars.index(name)]
+
+    else:
+        raise NotAvailableAttributeError(name)
+
+    return full_data, indexes
 
 
 class ReadOnly2(Generic[ReadOnlyType]):
@@ -111,7 +191,8 @@ class VariableView:
         self,
         k: IntType,
         full_data: Array2D,
-        idx_list: list[IntType],
+        indexes: list[IntType],
+        columns: list[str],
     ) -> None:
         """Initialize the variable view.
 
@@ -121,12 +202,17 @@ class VariableView:
             The current time step.
         full_data : Array2D
             The full data array.
-        idx_list : list[IntType]
+        indexes : list[IntType]
             The list of indices.
         """
         self._k = k
         self._full_data = full_data
-        self._indexes = idx_list
+        self._indexes = indexes
+        self._columns = columns
+
+    @property
+    def df(self) -> pd.DataFrame:
+        return pd.DataFrame(self.hist.T, columns=self._columns)
 
     @property
     def val(self) -> Array2D:
@@ -361,7 +447,8 @@ class VariableViewDict:
         self,
         k: IntType,
         full_data: PredDType,
-        indexes: list[IntType] | None = None,
+        indexes: list[IntType],
+        columns: list[str],
     ) -> None:
         """
         Initialize the variable view dictionary.
@@ -378,6 +465,7 @@ class VariableViewDict:
         self._k = k
         self._data_full = full_data
         self._indexes = indexes
+        self._columns = columns
 
     @property
     def arr(self) -> Array2D:
@@ -425,31 +513,24 @@ class VariableViewDict:
             The value of the variable view dictionary at the specified time step.
         """
 
-        if k == -1:
-            ordered = OrderDict(self._data_full)
-            input(next(reversed(ordered.values())))
-            return next(reversed(ordered.values()))
-
-        if k not in self._data_full:
+        ordered = OrderedDict(self._data_full)
+        if k not in self._data_full and k != -1:
             msg = f'The time step {k} is not in the data.'
             raise ValueError(msg)
 
-        arr = self._data_full[k]
+        if k == -1 and self._indexes is None:
+            return next(reversed(ordered.values()))
 
-        # If there are no indexes, return the entire array
+        if k == -1 and self._indexes is not None:
+            return next(reversed(ordered.values()))[self._indexes, :]
+
         if self._indexes is None:
-            return arr
+            return self._data_full[k]
 
-        # If there are no indexes, return an empty array
         if len(self._indexes) == 0:
             return np.array([[]])
 
-        # If the indexes span the entire array, return the entire array
-        # if len(self._indexes) == arr.shape[0]:
-        #     return arr
-
-        # Otherwise, return the selected elements
-        return arr[self._indexes, :]
+        return self._data_full[k][self._indexes, :]
 
     def set_val(self, k: IntType, val: Array2D) -> None:
         """
@@ -471,7 +552,7 @@ class VariableViewDict:
         self._data_full[k] = val
 
     @property
-    def vstack(self) -> NDArray:
+    def df(self) -> pd.DataFrame:
         """
         Stack the values of the full_data dictionary vertically.
 
@@ -480,8 +561,30 @@ class VariableViewDict:
         NDArray
             The stacked values.
         """
-        data = [np.vstack(list(self._data_full.values()))]
-        return np.hstack(data)
+        time_steps = np.vstack(list(self._data_full.keys()))
+        df_arr = np.stack(list(self._data_full.values()))
+        n_pred = df_arr.shape[2]
+
+        df_arr = df_arr.reshape((time_steps.shape[0], -1))
+        data = np.hstack([time_steps, df_arr])
+
+        columns = (
+            self._columns
+            if n_pred == 1
+            else [
+                f'{col}_{step}'
+                for col in self._columns
+                for step in np.arange(n_pred)
+            ]
+        )
+
+        df = pd.DataFrame(
+            data=data,
+            columns=['k', *columns],
+        )
+        df['k'] = df['k'].astype(int)
+
+        return df
 
 
 class StateSpaceStructure:
@@ -534,37 +637,41 @@ class StateSpaceStructure:
 
     def __init__(
         self,
-        k: IntType,
-        k_clock: IntType,
-        data_fulls: dict[str, Array2D],
-        idx_lists: dict[str, list[IntType]],
+        instance: 'Model',
+        name: str,
+        full_data_dict: dict[str, Array2D],
+        indexes_dict: dict[str, list[IntType]],
     ) -> None:
-        """
-        Initialize the state space structure.
-
-        Parameters
-        ----------
-        k : IntType
-            The current time step.
-        k_clock : IntType
-            The current time step in clock time.
-        data_fulls : dict[str, Array2D]
-            A dictionary with the full data arrays for each source.
-        idx_lists : dict[str, list[IntType]]
-            A dictionary with the index lists for each source.
-        """
         # Iterate over the sources and create the VariableView instances
-        for source, full_data in data_fulls.items():
+        for source, full_data in full_data_dict.items():
             # Determine the time step
-            k_ = k_clock if 'clock' in source else k
+            k = instance.k_clock if 'clock' in source else instance.k
 
+            if name == 'x':
+                columns = [f'{name_}_{source}' for name_ in instance.x_vars]
+            elif name == 'z':
+                columns = [f'{name_}_{source}' for name_ in instance.z_vars]
+            elif name == 'upq':
+                columns = [f'{name_}_{source}' for name_ in instance.upq_vars]
+            elif name == 'u':
+                columns = [f'{name_}_{source}' for name_ in instance.u_vars]
+            elif name == 'p':
+                columns = [f'{name_}_{source}' for name_ in instance.p_vars]
+            elif name == 'q':
+                columns = [f'{name_}_{source}' for name_ in instance.q_vars]
+            else:
+                columns = [f'{name}_{source}']
             # Create the VariableView instance
-            idx_list = idx_lists[source]
-            variable_view = VariableView(k_, full_data, idx_list)
+            indexes = indexes_dict[source]
+            variable_view = VariableView(
+                k=k,
+                full_data=full_data,
+                indexes=indexes,
+                columns=columns,
+            )
 
             # Set the attribute
-            attr_name = f'_{source}'
-            setattr(self, attr_name, variable_view)
+            setattr(self, f'_{source}', variable_view)
 
 
 class CostStructure:
@@ -607,7 +714,10 @@ class CostStructure:
         self._data_full = full_data
         for cost_element in COST_ELEMENTS:
             variable_view_dict = VariableViewDict(
-                k=k, full_data=full_data[cost_element]
+                k=k,
+                full_data=full_data[cost_element],
+                indexes=[0],
+                columns=[f'cost_{cost_element}'],
             )
             setattr(self, f'_{cost_element}', variable_view_dict)
 
@@ -658,6 +768,20 @@ class CostStructure:
         for element in COST_ELEMENTS:
             getattr(self, f'_{element}').arr = new_values[element]
 
+    @property
+    def df(self) -> pd.DataFrame:
+        dfs = [
+            self.x.df,
+            self.y.df,
+            self.u.df,
+            self.du.df,
+            self.total.df,
+        ]
+        return reduce(
+            lambda left, right: pd.merge(left, right, on='k'),
+            dfs,
+        )
+
 
 class PredictionsStructure:
     k = ReadOnly2[VariableViewDict]()
@@ -667,47 +791,65 @@ class PredictionsStructure:
     u = ReadOnly2[VariableViewDict]()
     costs = ReadOnly2[CostStructure]()
 
-    def __init__(self, k: IntType, full_data: PredictionsData) -> None:
-        """
-        Initialize the prediction structure.
+    def __init__(self, instance: 'Model') -> None:
+        self._time_step: IntType = instance.k
+        self._full_data: PredictionsData = instance.data.predictions_full
+        self._x_vars: list[str] = instance.x_vars
+        self._z_vars: list[str] = instance.z_vars
+        self._u_vars: list[str] = instance.u_vars
+        self._p_vars: list[str] = instance.p_vars
+        self._q_vars: list[str] = instance.q_vars
 
-        Parameters
-        ----------
-        k : IntType
-            The number of steps in the prediction horizon.
-        full_data : PredictionsData
-            The full data of the predictions.
-
-        The prediction structure is initialized with the given full data and
-        the number of steps in the prediction horizon. The elements of the
-        prediction structure are set to the corresponding elements of the
-        full data.
-
-        The cost elements are also initialized with the given full data.
-        """
         # Initialize each prediction element with its corresponding data
         for element in PREDICTION_ELEMENTS:
-            variable_data = getattr(full_data, element)
+            if element == 'x':
+                columns = [f'{name_}' for name_ in self._x_vars]
+                indexes = list(np.arange(len(self._x_vars)))
+            elif element == 'z':
+                columns = [f'{name_}' for name_ in self._z_vars]
+                indexes = list(np.arange(len(self._z_vars)))
+            elif element == 'u':
+                columns = [f'{name_}' for name_ in self._u_vars]
+                indexes = list(np.arange(len(self._u_vars)))
+            elif element == 'p':
+                columns = [f'{name_}' for name_ in self._p_vars]
+                indexes = list(np.arange(len(self._p_vars)))
+            elif element == 'q':
+                columns = [f'{name_}' for name_ in self._q_vars]
+                indexes = list(np.arange(len(self._q_vars)))
+            elif element == 't':
+                columns = ['t']
+                indexes = [0]
+            elif element == 'k':
+                columns = ['k']
+                indexes = [0]
+            else:
+                msg = f'Element {element} is not a valid prediction element.'
+                raise ValueError(msg)
+
+            variable_data: PredDType = getattr(self._full_data, element)
             setattr(
                 self,
                 f'_{element}',
                 VariableViewDict(
-                    k=k,
+                    k=self._time_step,
                     full_data=variable_data,
+                    indexes=indexes,
+                    columns=columns,
                 ),
             )
 
         # Prepare cost data dictionary from full_data
         cost_data = {
-            element: getattr(full_data, f'cost_{element}')
+            element: getattr(self._full_data, f'cost_{element}')
             for element in COST_ELEMENTS
         }
 
         # Initialize the cost structure with the cost data
-        self._costs = CostStructure(k=k, full_data=cost_data)
+        self._costs = CostStructure(k=self._time_step, full_data=cost_data)
 
     @property
-    def df_cost(self) -> pd.DataFrame:
+    def df(self) -> pd.DataFrame:
         """
         Return a pandas DataFrame containing the cost data of the predictions.
 
@@ -722,16 +864,65 @@ class PredictionsStructure:
         df_cost : pd.DataFrame
             The DataFrame containing the cost data of the predictions.
         """
-        cost_data = {
-            'step': self.k.vstack[:, 0],
-            'time': self.t.vstack[:, 0],
-            'cost_x': self.costs.x.vstack[:, 0],
-            'cost_y': self.costs.y.vstack[:, 0],
-            'cost_u': self.costs.u.vstack[:, 0],
-            'cost_du': self.costs.du.vstack[:, 0],
-            'cost_total': self.costs.total.vstack[:, 0],
-        }
-        return pd.DataFrame(cost_data)
+
+        dfs = [self.t.df, self.x.df, self.u.df, self.costs.df]
+
+        return reduce(
+            lambda left, right: pd.merge(left, right, on='k'),
+            dfs,
+        )
+
+    @property
+    def df_tux(self) -> pd.DataFrame:
+        """
+        Return a pandas DataFrame containing the cost data of the predictions.
+
+        The columns of the DataFrame are 'step', 'time', 'cost_x', 'cost_y',
+        'cost_u', 'cost_du', and 'cost_total', which represent the current
+        time step, the current time, the cost of the states, the cost of the
+        outputs, the cost of the inputs, the cost of the input differences,
+        and the total cost, respectively.
+
+        Returns
+        -------
+        df_cost : pd.DataFrame
+            The DataFrame containing the cost data of the predictions.
+        """
+
+        dfs = [self.t.df, self.u.df, self.x.df, self.costs.df]
+
+        return reduce(
+            lambda left, right: pd.merge(left, right, on='k'),
+            dfs,
+        )
+
+    def get_var(self, var: str) -> VariableViewDict:
+        if var in self._x_vars:
+            return VariableViewDict(
+                k=self._time_step,
+                full_data=self._full_data.x,
+                indexes=[self._x_vars.index(var)],
+                columns=[var],
+            )
+
+        if var in self._z_vars:
+            return VariableViewDict(
+                k=self._time_step,
+                full_data=self._full_data.z,
+                indexes=[self._z_vars.index(var)],
+                columns=[var],
+            )
+
+        if var in self._u_vars:
+            return VariableViewDict(
+                k=self._time_step,
+                full_data=self._full_data.u,
+                indexes=[self._u_vars.index(var)],
+                columns=[var],
+            )
+
+        msg = f'Variable {var} not found.'
+        raise ValueError(msg)
 
 
 class SystemCallable:
@@ -823,24 +1014,26 @@ class SystemCallable:
             raise NotAvailableAttributeError(var_name)
 
         # Initialize dictionaries to hold data and index lists for each source
-        data: dict[str, Array2D] = {}
-        idx_list: dict[str, list[IntType]] = {}
+        full_data_dict: dict[str, Array2D] = {}
+        indexes_dict: dict[str, list[IntType]] = {}
 
         # Iterate over each source to populate data and index lists
         for source in self._sources:
-            data[source], idx_list[source] = _get_full_data_and_indexes(
-                self._instance,
-                ss_name=ss_name,
-                name=var_name,
-                source=source,
+            full_data_dict[source], indexes_dict[source] = (
+                _get_full_data_and_indexes(
+                    self._instance,
+                    ss_name=ss_name,
+                    name=var_name,
+                    source=source,
+                )
             )
 
         # Return a StateSpaceStructure with the retrieved data and index lists
         return StateSpaceStructure(
-            self._instance._data.k,
-            self._instance._data.k_clock,
-            data,
-            idx_list,
+            instance=self._instance,
+            name=var_name,
+            full_data_dict=full_data_dict,
+            indexes_dict=indexes_dict,
         )
 
 
@@ -875,16 +1068,10 @@ class SystemVariable:
         AttributeError
             If an attempt is made to assign a value to this attribute.
         """
-        msg = (
-            f"Attribute '{self._name}' is read-only."
-            f'{self._private_name} can be '
-            'used to access the underlying data.'
-        )
+        msg = f"Attribute '{self._name}' is read-only."
         raise AttributeError(msg)
 
-    def __get__(
-        self, instance, owner
-    ) -> StateSpaceStructure | VariableView | PredictionsStructure:
+    def __get__(self, instance, owner) -> StateSpaceStructure:
         """
         Get the state space structure.
 
@@ -908,115 +1095,91 @@ class SystemVariable:
         var_name = self._name
         var_sources = instance._settings.sources
 
+        # Get the full data and index lists
+        full_data_dict: dict[str, Array2D] = {}
+        indexes_dict: dict[str, list[IntType]] = {}
+        for source in var_sources:
+            # Get the full data and index lists for each source
+            arr_full, indexes = _get_full_data_and_indexes(
+                instance,
+                ss_name=var_name,
+                name=var_name,
+                source=source,
+            )
+            full_data_dict[source] = arr_full
+            indexes_dict[source] = indexes
+
+        # Return the state space structure
+        return StateSpaceStructure(
+            instance,
+            self._name,
+            full_data_dict,
+            indexes_dict,
+        )
+
+
+class SystemTime:
+    def __set_name__(self, owner, name: str) -> None:
+        """
+        Set the name of the private variable.
+
+        This method is automatically called when the instance variable is
+        assigned to the class. The name of the private variable is set to
+        `_{name}`, where `{name}` is the name of the instance variable.
+
+        Parameters
+        ----------
+        owner : type
+            The class that owns this instance variable.
+        name : str
+            The name of the instance variable.
+        """
+        self._name = name
+        self._private_name = f'_{name}'
+
+    def __get__(self, instance: 'Model', owner: type['Model']) -> VariableView:
         if self._name == 't':
             # The time variable is a special case
             return VariableView(
                 k=instance.k,
-                full_data=instance._data.t_full,
-                idx_list=[0],  # The time variable only has one element
+                full_data=instance.data.t_full,
+                indexes=[0],  # The time variable only has one element
+                columns=[self._name],
             )
 
         if self._name == 't_clock':
             # The clock time variable is a special case
             return VariableView(
                 k=instance.k,
-                full_data=instance._data.t_clock_full,
-                idx_list=[0],  # The clock time variable only has one element
+                full_data=instance.data.t_clock_full,
+                indexes=[0],  # The clock time variable only has one element
+                columns=[self._name],
             )
+
+        raise NotAvailableAttributeError(self._name)
+
+
+class SystemPredictions:
+    def __set_name__(self, owner, name: str) -> None:
+        """
+        Set the name of the private variable.
+
+        This method is automatically called when the instance variable is
+        assigned to the class. The name of the private variable is set to
+        `_{name}`, where `{name}` is the name of the instance variable.
+
+        Parameters
+        ----------
+        owner : type
+            The class that owns this instance variable.
+        name : str
+            The name of the instance variable.
+        """
+        self._name = name
+        self._private_name = f'_{name}'
+
+    def __get__(self, instance: 'Model', owner) -> PredictionsStructure:
         if self._name == 'predictions':
             # The predictions variable is a special case
-            return PredictionsStructure(
-                k=instance.k,
-                full_data=instance._data.predictions_full,
-            )
-
-        # Get the full data and index lists
-        arr_fulls = {}
-        idx_lists = {}
-        for source in var_sources:
-            # Get the full data and index lists for each source
-            arr_full, idx_list = _get_full_data_and_indexes(
-                instance,
-                ss_name=var_name,
-                name=var_name,
-                source=source,
-            )
-            arr_fulls[source] = arr_full
-            idx_lists[source] = idx_list
-
-        # Return the state space structure
-        return StateSpaceStructure(
-            instance.k,
-            instance._data.k_clock,
-            arr_fulls,
-            idx_lists,
-        )
-
-
-def _get_full_data_and_indexes(
-    instance,
-    ss_name: str,
-    name: str,
-    source: str,
-) -> tuple[Array2D, list[IntType]]:
-    """Get the full data and index list for a state space variable.
-
-    Parameters
-    ----------
-    instance : Model
-        The model instance.
-    ss_name : str
-        The name of the state space (x, z, or upq).
-    name : str
-        The name of the variable.
-    source : str
-        The source of the variable (e.g., "est", "meas", etc.).
-
-    Returns
-    -------
-    full_data : Array2D
-        The full data array.
-    idx_list : list[IntType]
-        The index list.
-    """
-
-    # Define the variable names
-    x_vars = instance._settings.x_vars
-    z_vars = instance._settings.z_vars
-    upq_vars = instance._settings.upq_vars
-
-    # Get the full data
-    if name in ['x', *x_vars, *SS_VARS_SECONDARY]:
-        full_data = getattr(instance._data, f'x_{source}_full')
-    elif name in ['z', *z_vars]:
-        full_data = getattr(instance._data, f'z_{source}_full')
-    elif name in ['u', 'p', 'q', 'upq', *upq_vars]:
-        full_data = getattr(instance._data, f'upq_{source}_full')
-    else:
-        raise NotAvailableAttributeError(name)
-
-    # Get the index list
-    if name in SS_VARS_DB:
-        idx_list = list(range(full_data.shape[0]))
-
-    elif name in ['u', 'p', 'q']:
-        vars_ = getattr(instance._settings, f'{name}_vars')
-        idx_list = [upq_vars.index(var_) for var_ in vars_]
-
-    elif name in SS_VARS_SECONDARY:
-        vars_ = getattr(instance._settings, f'{name}_vars')
-        idx_list = [x_vars.index(var_) for var_ in vars_]
-
-    elif name in x_vars:
-        idx_list = [x_vars.index(name)]
-
-    elif name in z_vars:
-        idx_list = [z_vars.index(name)]
-
-    elif name in upq_vars:
-        idx_list = [upq_vars.index(name)]
-
-    else:
-        raise NotAvailableAttributeError(name)
-
-    return full_data, idx_list
+            return PredictionsStructure(instance)
+        raise NotAvailableAttributeError(self._name)

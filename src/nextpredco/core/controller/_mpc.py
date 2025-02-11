@@ -48,7 +48,10 @@ class MPC(ControllerABC):
         # TODO Verify when need to re-create the nlp solver
         self._nlp_solver: ca.Function
         self._nlp_funcs: dict[str, ca.Function]
+
+        logger.debug('Creating nlp solver...')
         self._nlp_solver, self._nlp_funcs = self._create_nlp_solver()
+        logger.debug('Created nlp solver')
 
     def _create_data_preds_in_model(self):
         k_stamps = np.arange(
@@ -81,13 +84,13 @@ class MPC(ControllerABC):
         #     costs_full=costs_full,
         # )
 
-        self._model.create_data_preds_full(
-            # k_preds_full={},
-            # t_preds_full={},
-            # u_preds_full={},
-            # x_preds_full={},
-            # costs_full={},
-        )
+        # self._model.create_data_preds_full(
+        #     k_preds_full={},
+        #     t_preds_full={},
+        #     u_preds_full={},
+        #     x_preds_full={},
+        #     costs_full={},
+        # )
 
     def _create_nlp_solver(self):
         return self._single_shooting()
@@ -170,8 +173,7 @@ class MPC(ControllerABC):
         return arr - goal
 
     def _single_shooting(self) -> ca.Function:
-        # TODO: check if algebraic equations are present
-        # This should be done before calling this method
+        logger.debug('Initializing symbols for single shooting')
         x0 = Symbolic.sym('__x0', self._model.n('x'), 1)
         z0 = Symbolic.sym('__z0', 0)
         u0 = Symbolic.sym('__u0', self._model.n('u'), 1)
@@ -192,8 +194,7 @@ class MPC(ControllerABC):
             'u_preds', self._model.n('u') * self._n_pred, 1
         )
 
-        # Note: casadi use column-major order,
-        # numpy use row-major order
+        logger.debug('Reshaping predicted controls')
         u_preds = u_pred_vec.reshape((self._model.n('u'), self._n_pred))
         upq_arr_ = []
         for k in range(self._n_pred):
@@ -201,6 +202,7 @@ class MPC(ControllerABC):
             upq_arr_.append(upq_)
         upq_arr = ca.hcat(upq_arr_)
 
+        logger.debug('Integrating with initial states')
         _, _, x_preds, _ = self._integrator.integrate(
             x0=x0,
             z0=z0,
@@ -208,15 +210,16 @@ class MPC(ControllerABC):
             t_grid=np.arange(self._n_pred + 1) * self._settings.dt,
         )
 
-        # Compute cost
+        logger.debug('Computing costs')
         costs = self.compute_costs(x_preds, u_preds, x_goal, u_goal, u0)
 
+        logger.debug('Setting up constraints')
         constraints: list[Symbolic] = []
         for k in range(x_preds.shape[1]):
             constraints.append(x_preds[:, k] - x_lb)
             constraints.append(x_lb - x_preds[:, k])
 
-        # Create nlp info
+        logger.debug('Creating NLP parameters')
         params = ca.vcat(
             [x0, z0, u0, p, q, x_goal, u_goal, x_lb, x_ub, u_lb, u_ub]
         )
@@ -227,6 +230,7 @@ class MPC(ControllerABC):
             'p': params,
         }
 
+        logger.debug('Creating NLP functions')
         nlp_outputs = {
             'x_preds': x_preds,
             'u_lb': ca.vcat([u_lb] * self._n_pred),
@@ -249,11 +253,11 @@ class MPC(ControllerABC):
                 [val],
             )
 
-        # Create nlp solver
+        logger.debug('Creating NLP solver')
+        # input(f'nlp = {pretty_repr(nlp)}')
         nlp_solver: ca.Function = ca.nlpsol('nlp_solver', 'ipopt', nlp)
         return nlp_solver, nlp_funcs
 
-    @override
     def make_step(self):
         u_guess = np.repeat(self._model.u.goal.val, self._n_pred)
         params = np.vstack(
@@ -291,6 +295,7 @@ class MPC(ControllerABC):
         self._model.predictions.k.arr = (
             self._model.k + 1 + np.arange(self._n_pred).reshape((1, -1))
         )
+
         self._model.predictions.t.arr = (
             self._model.predictions.k.arr * self._settings.dt
         )
