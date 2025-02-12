@@ -8,7 +8,13 @@ from rich.pretty import pretty_repr as pretty_repr
 
 from nextpredco.core._consts import COST_ELEMENTS
 from nextpredco.core._logger import logger
-from nextpredco.core._typing import ArrayType, IntType, Symbolic
+from nextpredco.core._typing import (
+    Array2D,
+    ArrayType,
+    FloatType,
+    IntType,
+    Symbolic,
+)
 from nextpredco.core.controller import ControllerABC
 from nextpredco.core.model import Model
 from nextpredco.core.model._descriptors import ReadOnly2
@@ -36,11 +42,11 @@ class MPC(ControllerABC):
         self._settings: MPCSettings
 
         self._n_pred = settings.n_pred
-        self._weights = {
+        self._weights: dict[str, FloatType | Array2D] = {
             'x': settings.weight_x[0],
             'y': settings.weight_y[0],
             'u': settings.weight_u[0],
-            'du': settings.weight_du[0],
+            'du': np.diag(settings.weight_du),
         }
 
         self._create_data_preds_in_model()
@@ -178,8 +184,8 @@ class MPC(ControllerABC):
         z0 = Symbolic.sym('__z0', 0)
         u0 = Symbolic.sym('__u0', self._model.n('u'), 1)
 
-        p = Symbolic.sym('__p', self._model.n('p'), 1)
-        q = Symbolic.sym('__q', self._model.n('q'), 1)
+        p0 = Symbolic.sym('__p0', self._model.n('p'), 1)
+        q0 = Symbolic.sym('__q0', self._model.n('q'), 1)
 
         x_goal = Symbolic.sym('__x_goal', self._model.n('x'), 1)
         u_goal = Symbolic.sym('__u_goal', self._model.n('u'), 1)
@@ -198,7 +204,7 @@ class MPC(ControllerABC):
         u_preds = u_pred_vec.reshape((self._model.n('u'), self._n_pred))
         upq_arr_ = []
         for k in range(self._n_pred):
-            upq_ = self.model.get_upq(u=u_preds[:, k], p=p, q=q)
+            upq_ = self._model.get_upq(u_arr=u_preds[:, k], p_arr=p0, q_arr=q0)
             upq_arr_.append(upq_)
         upq_arr = ca.hcat(upq_arr_)
 
@@ -216,23 +222,26 @@ class MPC(ControllerABC):
         logger.debug('Setting up constraints')
         constraints: list[Symbolic] = []
         for k in range(x_preds.shape[1]):
-            constraints.append(x_preds[:, k] - x_lb)
             constraints.append(x_lb - x_preds[:, k])
+            constraints.append(x_preds[:, k] - x_ub)
 
         logger.debug('Creating NLP parameters')
         params = ca.vcat(
-            [x0, z0, u0, p, q, x_goal, u_goal, x_lb, x_ub, u_lb, u_ub]
+            [x0, z0, u0, p0, q0, x_goal, u_goal, x_lb, x_ub, u_lb, u_ub]
         )
         nlp = {
             'x': u_pred_vec,
-            'f': costs['y'],
-            # 'g': ca.vcat(constraints),
+            'f': costs['total'],
+            'g': ca.vcat(constraints),
             'p': params,
         }
 
         logger.debug('Creating NLP functions')
         nlp_outputs = {
             'x_preds': x_preds,
+            'z_preds': Symbolic.sym(
+                '__z_preds', self._model.n('z'), self._n_pred
+            ),
             'u_lb': ca.vcat([u_lb] * self._n_pred),
             'u_ub': ca.vcat([u_ub] * self._n_pred),
         }
@@ -259,23 +268,43 @@ class MPC(ControllerABC):
         return nlp_solver, nlp_funcs
 
     def make_step(self):
-        u_guess = np.repeat(self._model.u.goal.val, self._n_pred)
-        params = np.vstack(
-            [
-                self._model.x.est.val,
-                self._model.z.est.val,
-                self._model.u.est.val,
-                self._model.p.est.val,
-                self._model.q.est.val,
-                self._model.x.goal.val,
-                self._model.u.goal.val,
-                np.array([[0.1, 0.1, 0.5, 0.5]]).T,
-                np.array([[2, 2, 0.5, 0.5]]).T,
-                np.array([[5, -8500]]).T,
-                np.array([[100, 0]]).T,
-            ]
-        )
+        u_guess = np.repeat(self._model.u.est.val, self._n_pred)
+        x0 = self._model.x.est.val
+        z0 = self._model.z.est.val
+        u0 = self._model.u.est.val
+        p0 = self._model.p.est.val
+        q0 = self._model.q.est.val
+        x_goal = self._model.x.goal.val
+        u_goal = self._model.u.goal.val
+        x_lb = np.array([[0.1, 0.1, 50, 50]]).T
+        x_ub = np.array([[2, 2, 140, 140]]).T
+        u_lb = np.array([[5, -8500]]).T
+        u_ub = np.array([[100, 0.0]]).T
 
+        params = np.vstack(
+            [x0, z0, u0, p0, q0, x_goal, u_goal, x_lb, x_ub, u_lb, u_ub]
+        )
+        # logger.debug(
+        #     pretty_repr(
+        #         dict(
+        #             u_guess=np.repeat(self._model.u.est.val, self._n_pred),
+        #             x0=self._model.x.est.val,
+        #             z0=self._model.z.est.val,
+        #             u0=self._model.u.est.val,
+        #             p0=self._model.p.est.val,
+        #             q0=self._model.q.est.val,
+        #             x_goal=self._model.x.goal.val,
+        #             u_goal=self._model.u.goal.val,
+        #             x_lb=np.array([[0.1, 0.1, 50, 50]]).T,
+        #             x_ub=np.array([[2, 2, 140, 140]]).T,
+        #             u_lb=np.array([[5, -8500]]).T,
+        #             u_ub=np.array([[100, 0.0]]).T,
+        #         )
+        #     )
+        # )
+        # input('Press Enter to start solver')
+        # input(self._nlp_funcs['u_lb'](u_guess, params))
+        # input(self._nlp_funcs['u_ub'](u_guess, params))
         sol_ = self._nlp_solver(
             x0=u_guess,
             p=params,
@@ -292,49 +321,30 @@ class MPC(ControllerABC):
             for key, func in self._nlp_funcs.items()
         }
 
-        self._model.predictions.k.arr = (
-            self._model.k + 1 + np.arange(self._n_pred).reshape((1, -1))
+        k_arr = self._model.k + 1 + np.arange(self._n_pred).reshape((1, -1))
+        t_arr = k_arr * self._settings.dt
+        u_arr = sol['x'].reshape((-1, self._n_pred), order='F')
+
+        _, _, x_fine_arr, z_fine_arr = self._model.compute_xz(
+            x0=x0,
+            z0=z0,
+            u_arr=u_arr,
+            p_arr=p0,
+            q_arr=q0,
+            t_grid=[*self._model.t.val[0, :].tolist(), *t_arr[0, :].tolist()],
         )
 
-        self._model.predictions.t.arr = (
-            self._model.predictions.k.arr * self._settings.dt
-        )
+        self._model.predictions.k.arr = k_arr
+        self._model.predictions.t.arr = t_arr
+        self._model.predictions.u.arr = u_arr
         self._model.predictions.x.arr = vals['x_preds']
-        # self._model.predictions.z.arr = vals['z_preds']
-        self._model.predictions.u.arr = sol['x'].reshape(
-            (-1, self._n_pred),
-            order='F',
-        )
+        self._model.predictions.z.arr = vals['z_preds']
+        self._model.predictions.x_fine.arr = x_fine_arr
+        self._model.predictions.z_fine.arr = z_fine_arr
 
         for key in [*COST_ELEMENTS]:
             attr = getattr(self._model.predictions.costs, key)
             attr.arr = vals[f'cost_{key}']
 
-        # logger.debug(
-        #     'sol: %s\n'
-        #     'vals: %s\n'
-        #     'u_est_last: %s\n'
-        #     'x_est_last: %s\n'
-        #     'weights %s\n'
-        #     'costs: x %s, y: %s, u:%s, du: %s, total: %s\n'
-        #     'u_preds: %s\n'
-        #     'x_preds: %s\n'
-        #     'u.preds.val %s\n',
-        #     sol,
-        #     vals,
-        #     self._model.u.est.val.T,
-        #     self._model.x.est.val.T,
-        #     self._weights,
-        #     vals['cost_x'],
-        #     vals['cost_y'],
-        #     vals['cost_u'],
-        #     vals['cost_du'],
-        #     vals['cost_total'],
-        #     self._model.predictions.u.arr,
-        #     self._model.predictions.x.arr,
-        #     self._model.predictions.u.val,
-        # )
-
-        # logger.debug(pretty_repr(self._model._data.predictions_full))
-        # input('Press Enter to continue')
+        # input(f'vals = {vals}')
         return self._model.predictions.u.val

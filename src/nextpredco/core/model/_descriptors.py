@@ -659,6 +659,8 @@ class StateSpaceStructure:
                 columns = [f'{name_}_{source}' for name_ in instance.p_vars]
             elif name == 'q':
                 columns = [f'{name_}_{source}' for name_ in instance.q_vars]
+            elif name == 'y':
+                columns = [f'{name_}_{source}' for name_ in instance.y_vars]
             else:
                 columns = [f'{name}_{source}']
             # Create the VariableView instance
@@ -790,6 +792,8 @@ class PredictionsStructure:
     z = ReadOnly2[VariableViewDict]()
     u = ReadOnly2[VariableViewDict]()
     costs = ReadOnly2[CostStructure]()
+    x_fine = ReadOnly2[VariableViewDict]()
+    z_fine = ReadOnly2[VariableViewDict]()
 
     def __init__(self, instance: 'Model') -> None:
         self._time_step: IntType = instance.k
@@ -801,11 +805,11 @@ class PredictionsStructure:
         self._q_vars: list[str] = instance.q_vars
 
         # Initialize each prediction element with its corresponding data
-        for element in PREDICTION_ELEMENTS:
-            if element == 'x':
+        for element in [*PREDICTION_ELEMENTS, 'x_fine', 'z_fine']:
+            if element in ['x', 'x_fine']:
                 columns = [f'{name_}' for name_ in self._x_vars]
                 indexes = list(np.arange(len(self._x_vars)))
-            elif element == 'z':
+            elif element in ['z', 'z_fine']:
                 columns = [f'{name_}' for name_ in self._z_vars]
                 indexes = list(np.arange(len(self._z_vars)))
             elif element == 'u':
@@ -896,30 +900,25 @@ class PredictionsStructure:
             dfs,
         )
 
-    def get_var(self, var: str) -> VariableViewDict:
+    def get_var(self, var: str, is_fine: bool = False) -> VariableViewDict:
         if var in self._x_vars:
-            return VariableViewDict(
-                k=self._time_step,
-                full_data=self._full_data.x,
-                indexes=[self._x_vars.index(var)],
-                columns=[var],
-            )
+            indexes = [self._x_vars.index(var)]
+            data = self._full_data.x if not is_fine else self._full_data.x_fine
 
         if var in self._z_vars:
-            return VariableViewDict(
-                k=self._time_step,
-                full_data=self._full_data.z,
-                indexes=[self._z_vars.index(var)],
-                columns=[var],
-            )
+            indexes = [self._z_vars.index(var)]
+            data = self._full_data.z if not is_fine else self._full_data.z_fine
 
         if var in self._u_vars:
-            return VariableViewDict(
-                k=self._time_step,
-                full_data=self._full_data.u,
-                indexes=[self._u_vars.index(var)],
-                columns=[var],
-            )
+            indexes = [self._u_vars.index(var)]
+            data = self._full_data.u
+
+        return VariableViewDict(
+            k=self._time_step,
+            full_data=data,
+            indexes=indexes,
+            columns=[var],
+        )
 
         msg = f'Variable {var} not found.'
         raise ValueError(msg)

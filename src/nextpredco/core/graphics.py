@@ -78,11 +78,19 @@ def plot_transient_multi_systems(
                 val_preds = system.model.predictions.get_var(
                     physical_var
                 ).arr.T
+                fine_preds = system.model.predictions.get_var(
+                    physical_var
+                ).arr.T
 
                 ax.plot(
                     t_preds,
                     val_preds,
                     **settings.get_style(source='pred'),  # type: ignore[arg-type]
+                )
+                ax.plot(
+                    t_preds,
+                    fine_preds,
+                    **settings.get_style(source='fine_pred'),  # type: ignore[arg-type]
                 )
 
             attr = system.model.get_var(physical_var)

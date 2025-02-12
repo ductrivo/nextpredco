@@ -20,4 +20,4 @@ TEX = 'tex'
 DESCRIPTION = 'description'
 ROLE = 'role'
 COST_ELEMENTS = ['x', 'y', 'u', 'du', 'total']
-PREDICTION_ELEMENTS = ['k', 't', 'x', 'u']
+PREDICTION_ELEMENTS = ['k', 't', 'x', 'z', 'u']

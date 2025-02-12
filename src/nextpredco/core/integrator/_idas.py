@@ -90,8 +90,9 @@ class IDAS(IntegratorABC):
         for k in range(upq_arr.shape[1]):
             upq = upq_arr[:, k]
             sol = integrator(x0=x0, z0=z0, p=upq)
-            x = sol['xf'].full()
-            z = sol['zf'].full()
+            x = sol['xf'].full()[:, -1, None]
+            z = sol['zf'].full()[:, -1, None]
+
             x_list.append(copy(x))
             z_list.append(copy(z))
 

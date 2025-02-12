@@ -15,8 +15,17 @@ class GraphicsSettings:
 
     pred_style: MatplotlibPlotStyle = field(
         default_factory=lambda: {
-            'label': 'Estimated',
+            'label': 'Predictions',
             'color': 'red',
+            'linewidth': 1,
+            'linestyle': ':',
+        }
+    )
+
+    fine_pred_style: MatplotlibPlotStyle = field(
+        default_factory=lambda: {
+            'label': 'Fine predictions',
+            'color': 'green',
             'linewidth': 1,
         }
     )
@@ -49,25 +58,30 @@ class GraphicsSettings:
 
     def get_style(self, source: str, prefix: str = '') -> MatplotlibPlotStyle:
         if source == 'est':
-            est_style = self.est_style.copy()
-            est_style['label'] = f'{prefix}{est_style["label"]}'
-            return est_style
+            style = self.est_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
         if source == 'pred':
-            pred_style = self.pred_style.copy()
-            pred_style['label'] = f'{prefix}{pred_style["label"]}'
-            return pred_style
+            style = self.pred_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
+        if source == 'fine_pred':
+            style = self.fine_pred_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
+
         if source == 'act':
-            act_style = self.act_style.copy()
-            act_style['label'] = f'{prefix}{act_style["label"]}'
-            return act_style
+            style = self.act_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
         if source == 'meas':
-            meas_style = self.meas_style.copy()
-            meas_style['label'] = f'{prefix}{meas_style["label"]}'
-            return meas_style
+            style = self.meas_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
         if source == 'goal':
-            goal_style = self.goal_style.copy()
-            goal_style['label'] = f'{prefix}{goal_style["label"]}'
-            return goal_style
+            style = self.goal_style.copy()
+            style['label'] = f'{prefix}{style["label"]}'
+            return style
 
         msg = f'Unknown source: {source}'
         raise ValueError(msg)

@@ -21,6 +21,8 @@ class PredictionsData:
     x: PredDType = field(default_factory=OrderedDict)
     z: PredDType = field(default_factory=OrderedDict)
     u: PredDType = field(default_factory=OrderedDict)
+    x_fine: PredDType = field(default_factory=OrderedDict)
+    z_fine: PredDType = field(default_factory=OrderedDict)
     cost_x: PredDType = field(default_factory=OrderedDict)
     cost_y: PredDType = field(default_factory=OrderedDict)
     cost_u: PredDType = field(default_factory=OrderedDict)

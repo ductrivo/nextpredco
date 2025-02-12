@@ -264,6 +264,55 @@ class Model:
 
     def get_upq(
         self,
+        u_arr: ArrayType | None = None,
+        p_arr: ArrayType | None = None,
+        q_arr: ArrayType | None = None,
+    ):
+        u_arr = self.u.est.last if u_arr is None else u_arr
+        p_arr = self.p.est.last if p_arr is None else p_arr
+        q_arr = self.q.est.last if q_arr is None else q_arr
+
+        n_cols = max(arr_.shape[1] for arr_ in [u_arr, p_arr, q_arr])
+
+        u_arr = (
+            np.repeat(u_arr, n_cols, axis=1)
+            if u_arr.shape[1] != n_cols
+            else u_arr
+        )
+        p_arr = (
+            np.repeat(p_arr, n_cols, axis=1)
+            if p_arr.shape[1] != n_cols
+            else p_arr
+        )
+        q_arr = (
+            np.repeat(q_arr, n_cols, axis=1)
+            if q_arr.shape[1] != n_cols
+            else q_arr
+        )
+
+        arr: list[ArrayType] = []
+        for var in self._settings.upq_vars:
+            if var in self._settings.u_vars:
+                idx = self._settings.u_vars.index(var)
+                arr.append(u_arr[[idx], :])
+            elif var in self._settings.p_vars:
+                idx = self._settings.p_vars.index(var)
+                arr.append(p_arr[[idx], :])
+            elif var in self._settings.q_vars:
+                idx = self._settings.q_vars.index(var)
+                arr.append(q_arr[[idx], :])
+
+        if (
+            isinstance(u_arr, Symbolic)
+            or isinstance(p_arr, Symbolic)
+            or isinstance(q_arr, Symbolic)
+        ):
+            return ca.vcat(arr)
+
+        return np.vstack(arr)
+
+    def get_upq2(
+        self,
         u: ArrayType | None = None,
         p: ArrayType | None = None,
         q: ArrayType | None = None,
@@ -363,19 +412,19 @@ class Model:
         self,
         x0: Array2D | None = None,
         z0: Array2D | None = None,
-        u: Array2D | None = None,
-        p: Array2D | None = None,
-        q: Array2D | None = None,
+        u_arr: Array2D | None = None,
+        p_arr: Array2D | None = None,
+        q_arr: Array2D | None = None,
         t_grid: TgridType | None = None,
     ) -> tuple[Array2D, Array2D, Array2D, Array2D]:
         x0 = self.x.est.last if x0 is None else x0
         z0 = self.z.est.last if z0 is None else z0
 
-        u = self.u.est.val if u is None else u
-        p = self.p.est.val if p is None else p
-        q = self.q.est.val if q is None else q
+        u_arr = self.u.est.val if u_arr is None else u_arr
+        p_arr = self.p.est.val if p_arr is None else p_arr
+        q_arr = self.q.est.val if q_arr is None else q_arr
 
-        upq_arr = self.get_upq(u=u, p=p, q=q)
+        upq_arr = self.get_upq(u_arr=u_arr, p_arr=p_arr, q_arr=q_arr)
         t_grid = [0, self._settings.dt] if t_grid is None else t_grid
 
         # logger.info(dict(x0=x0, z0=z0, upq_arr=upq_arr, t_grid=t_grid))

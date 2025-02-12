@@ -64,7 +64,7 @@ def simulation_with_example_data(
 
 
 def simulate_control_system():
-    system = construct_control_system('settings_taylor.csv')
+    system = construct_control_system('settings_template.csv')
     system.simulate()
     graphics.plot_transient_multi_systems({'taylor': system})
     plt.show()
