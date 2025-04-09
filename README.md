@@ -1,17 +1,24 @@
-# NEXT-PRED-CO: The Next Predictive Control and Optimization
+# EXPREDCO: EXtensible PREDictive Control and Optimization (Ongoing project)
 
-**NEXT-PRED-CO** is a modular platform for developing, simulating, and deploying **advanced predictive control and optimization methods** in industrial systems. It seamlessly integrates **data acquisition**, **processing**, and **visualization** with **machine learning** and **optimization techniques** to enable **adaptive control**, **fault diagnosis**, and **real-time decision-making**. The platform supports **flexible simulation environments**, **optimization-based tuning**, and interoperability with industrial protocols such as **OPC-UA**, leveraging tools like **Python**, **C++**, and **MATLAB/Simulink**. Tailored for applications in **process control**, **predictive maintenance**, and **dynamic resource allocation**, NEXT-PRED-CO empowers systems to achieve higher **efficiency**, **resilience**, and **optimization-driven adaptability**.
+**EXPREDCO** is a modular platform for developing, simulating, and deploying **advanced predictive control and optimization methods** in industrial systems. It seamlessly integrates **data acquisition**, **processing**, and **visualization** with **machine learning** and **optimization techniques** to enable **adaptive control**, **fault diagnosis**, and **real-time decision-making**. The platform supports **flexible simulation environments**, **optimization-based tuning**, and interoperability with industrial protocols such as **OPC-UA**, leveraging tools like **Python**, **C++**, and **MATLAB/Simulink**. Tailored for applications in **process control**, **predictive maintenance**, and **dynamic resource allocation**, NEXT-PRED-CO empowers systems to achieve higher **efficiency**, **resilience**, and **optimization-driven adaptability**.
+
+<div align="center">
+  <img src="https://i.imgur.com/MB4RUWR.png" alt="EXPREDCO Architecture" width="30%">
+  <p><strong>EXPREDCO Architecture</strong> </p>
+</div>
 
 ---
 
-# 🔧 Key Features of NEXT-PRED-CO
+# 🔧 Expected Features of EXPREDCO
 
-## 1️⃣ Advanced Control and Optimization Framework  
+## 1️⃣ Advanced Control and Optimization Framework
+
 A **scalable and modular platform** for the **development**, **simulation**, and **deployment** of advanced predictive control and **optimization algorithms**, addressing both **real-time** and **offline** challenges.
 
 ---
 
-## 2️⃣ Comprehensive Data Management and Visualization  
+## 2️⃣ Comprehensive Data Management and Visualization
+
 Facilitates **data acquisition**, **processing**, **real-time visualization**, and **reporting**, providing actionable insights for performance monitoring and control improvement.
 
 - Supports industrial protocols like **OPC-UA** and **Modbus**.  
@@ -19,7 +26,8 @@ Facilitates **data acquisition**, **processing**, **real-time visualization**, a
 
 ---
 
-## 3️⃣ Machine Learning and Optimization for Control  
+## 3️⃣ Machine Learning and Optimization for Control
+
 Integrates **machine learning models** and **optimization techniques** to refine control strategies and enhance system performance.
 
 - Employs **predictive models** for control and estimation.  
@@ -28,7 +36,8 @@ Integrates **machine learning models** and **optimization techniques** to refine
 
 ---
 
-## 4️⃣ Versatile Simulation Environment  
+## 4️⃣ Versatile Simulation Environment
+
 Provides a **flexible and realistic simulation environment** to test and refine control and optimization strategies under various operational scenarios.
 
 - Supports **linear**, **nonlinear**, and **hybrid system models**.  
@@ -36,7 +45,8 @@ Provides a **flexible and realistic simulation environment** to test and refine 
 
 ---
 
-## 5️⃣ Extensibility and Interoperability  
+## 5️⃣ Extensibility and Interoperability
+
 NEXT-PRED-CO is designed for **seamless integration** with industrial tools and protocols, ensuring broad applicability and ease of adoption.
 
 - Fully compatible with **Python**, **C++**, and **MATLAB/Simulink**.  
