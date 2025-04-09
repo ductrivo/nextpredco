@@ -3,7 +3,7 @@
 **EXPREDCO** is a modular platform for developing, simulating, and deploying **advanced predictive control and optimization methods** in industrial systems. It seamlessly integrates **data acquisition**, **processing**, and **visualization** with **machine learning** and **optimization techniques** to enable **adaptive control**, **fault diagnosis**, and **real-time decision-making**. The platform supports **flexible simulation environments**, **optimization-based tuning**, and interoperability with industrial protocols such as **OPC-UA**, leveraging tools like **Python**, **C++**, and **MATLAB/Simulink**. Tailored for applications in **process control**, **predictive maintenance**, and **dynamic resource allocation**, NEXT-PRED-CO empowers systems to achieve higher **efficiency**, **resilience**, and **optimization-driven adaptability**.
 
 <div align="center">
-  <img src="https://i.imgur.com/MB4RUWR.png" alt="EXPREDCO Architecture" width="30%">
+  <img src="https://i.imgur.com/MB4RUWR.png" alt="EXPREDCO Architecture" width="50%">
   <p><strong>EXPREDCO Architecture</strong> </p>
 </div>
 
