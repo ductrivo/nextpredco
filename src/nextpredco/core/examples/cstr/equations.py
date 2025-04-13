@@ -1,6 +1,6 @@
 import casadi as ca
 
-from nextpredco.core.custom_types import Symbolic
+from nextpredco.core._typing import Symbolic
 
 
 def create_f(

@@ -31,11 +31,12 @@ model:
 pre-commit-install:
 	bash run.sh pre-commit:install
 
+pre-commit-update:
+	bash run.sh pre-commit:update
+
 pre-commit-run:
 	bash run.sh pre-commit:run
 
-pre-commit-update:
-	bash run.sh pre-commit:update
 
 test-model:
 	bash run.sh test:model

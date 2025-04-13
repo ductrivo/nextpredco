@@ -9,6 +9,10 @@ from nextpredco.core.settings import (
 
 
 class IntegratorABC(ABC):
+    @property
+    def equations(self):
+        return self._equations
+
     def __init__(
         self,
         settings: IntegratorSettings,

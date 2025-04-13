@@ -11,7 +11,7 @@ with contextlib.suppress(ImportError):
 
 
 def copy_example_data(example_data: str, destination: Path):
-    data_dir = Path(__file__).parents[1] / 'data' / example_data
+    data_dir = Path(__file__).parents[1] / 'core' / 'examples' / example_data
     shutil.copytree(src=data_dir, dst=destination)
 
 

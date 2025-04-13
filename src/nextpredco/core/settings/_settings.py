@@ -141,7 +141,6 @@ def create_settings_template(project_dir: Path | None = None):
     settings_dfs.append(
         _get_class_settings(df=df_configs, prefix='controller.optimizer'),
     )
-
     # Create the CONTROLLER settings DataFrame
     settings_dfs.append(
         _get_class_settings(df=df_configs, prefix='observer'),
@@ -249,7 +248,9 @@ def _read_model_info_csv(
 
 def _merge_dfs(df1: pd.DataFrame, df2: pd.DataFrame) -> pd.DataFrame:
     # Merge df1 with df2 on PARAMETER column
-    merged_df = df1.merge(df2, on=PARAMETER, suffixes=('', '_new'), how='left')
+    merged_df = df1.merge(
+        df2, on=PARAMETER, suffixes=('', '_new'), how='outer'
+    )
 
     # Update the TYPE, VALUE, and DESCRIPTION columns
     # in df1 with those from df2
@@ -280,7 +281,8 @@ def _get_value(df: pd.DataFrame, parameter: str) -> str:
 
 
 def _get_class_settings(
-    df: pd.DataFrame | None = None, prefix: str = ''
+    df: pd.DataFrame | None = None,
+    prefix: str = '',
 ) -> pd.DataFrame:
     if df is None and prefix == 'model':
         settings = SettingsFactory.create(name='model')
@@ -323,7 +325,6 @@ def _get_class_settings(
         if name == 'opts':
             # Get options from file
             df_opts = _get_options_from_file(name=settings.name, prefix=prefix)
-
         # Add the settings to the dictionary
         elif (
             name not in ['info', 'descriptions', TEX] and '_types' not in name
@@ -404,11 +405,13 @@ def _get_options_from_file(name: str, prefix: str = '') -> pd.DataFrame:
     df2 = pd.read_csv(opts_path, na_filter=False)
 
     df_opts = _merge_dfs(df1, df2)
+
     df_opts = df_opts[df_opts['frequently_used'] == 'x']
     df_opts = df_opts[[PARAMETER, TYPE, VALUE, DESCRIPTION]]
     df_opts.loc[:, PARAMETER] = df_opts[PARAMETER].apply(
         lambda x: f'{prefix}.opts.{x}',
     )
+
     return df_opts
 
 

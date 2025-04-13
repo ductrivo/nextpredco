@@ -4,6 +4,7 @@ from typing import override
 import casadi as ca
 import numpy as np
 
+from nextpredco.core._logger import logger as logger
 from nextpredco.core._typing import ArrayType, Symbolic, TgridType
 from nextpredco.core.errors import StepSizeInitializationError
 from nextpredco.core.integrator._integrator import IntegratorABC
@@ -39,7 +40,8 @@ class Taylor(IntegratorABC):
         if self._settings.order == 1:
             x = x0 + h * self._ffunc(x0, z0, p0)
 
-        return ca.Function('private_int', [x0, z0, p0], [x])
+        # print(f'self._ffunc(x0, z0, p0) = {self._ffunc(x0, z0, p0)}')
+        return ca.Function('int_taylor', [x0, z0, p0], [x])
 
     @override
     def integrate(
@@ -63,20 +65,25 @@ class Taylor(IntegratorABC):
             max_ = np.floor(t_grid[-1] / self._settings.h)
             t_grid2 = np.arange(min_, max_ + 1) * self._settings.h
 
+        # print(f'Taylor: t_grid2 = {t_grid2}')
+
         x_arr = []
         x: ArrayType | ca.DM = x0
+        z: ArrayType | ca.DM = z0
         k = 0
         for i in range(len(t_grid2) - 1):
             dt = t_grid2[i + 1] - t_grid2[i]
 
             if self._is_greater(self._settings.h, dt):
+                # input('_is_greater')
                 h_new = self._settings.h - dt
                 integrator = self._create_integrator([0, h_new])
-                x = integrator(x, z0, upq_arr[:, k, None])
+                x = integrator(x, z, upq_arr[:, k, None])
             else:
-                x = self._integrator(x, z0, upq_arr[:, k])
+                x = self._integrator(x, z, upq_arr[:, k])
 
             if self._is_in_grid(t=t_grid2[i + 1], t_grid=t_grid):
+                # print(f'Taylor: {i} - {x.T}')
                 x_arr.append(copy(x))
                 k += 1
 

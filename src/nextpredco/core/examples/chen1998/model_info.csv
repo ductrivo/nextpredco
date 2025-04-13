@@ -1,0 +1,5 @@
+parameter,type,value,role,description,tex
+x1,float,-0.683,"x, m, y",,
+x2,float,-0.683,"x, m, y",,
+u,float,0,u,,
+mu,float,-0.683,const,,

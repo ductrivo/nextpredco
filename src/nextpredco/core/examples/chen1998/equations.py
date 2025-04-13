@@ -1,14 +1,14 @@
 import casadi as ca
 
-from nextpredco.core.custom_types import SymVar
+from nextpredco.core._typing import Symbolic
 
 
 def create_f(
-    x1: SymVar,
-    x2: SymVar,
-    u: SymVar,
-    mu: SymVar,
-) -> SymVar:
+    x1: Symbolic,
+    x2: Symbolic,
+    u: Symbolic,
+    mu: Symbolic,
+) -> Symbolic:
     x1_dot = x1 + u * (mu + (1 - mu) * x1)
     x2_dot = x2 + u * (mu + 4 * (1 - mu) * x2)
     return ca.vertcat(x1_dot, x2_dot)
@@ -16,10 +16,10 @@ def create_f(
 
 # @abstractmethod
 def create_g(
-    x1: SymVar,
-    x2: SymVar,
-    u: SymVar,
-    mu: SymVar,
-) -> SymVar:
+    x1: Symbolic,
+    x2: Symbolic,
+    u: Symbolic,
+    mu: Symbolic,
+) -> Symbolic:
     # TODO
-    return SymVar('g', 0)
+    return Symbolic('g', 0)

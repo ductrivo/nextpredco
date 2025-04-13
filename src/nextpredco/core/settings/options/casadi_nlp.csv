@@ -65,7 +65,7 @@ post_expand,bool,OT_BOOL,,,"After construction, expand this Function . Default: 
 post_expand_options,dict,OT_DICT,,,Options to be passed to post- construction expansion. Default: empty
 print_in,bool,OT_BOOL,,,Print numerical values of inputs [default: false]
 print_out,bool,OT_BOOL,,,Print numerical values of outputs [default: false]
-print_time,bool,OT_BOOL,,,print information about execution time. Implies record_time.
+print_time,bool,OT_BOOL,FALSE,x,print information about execution time. Implies record_time.
 record_time,bool,OT_BOOL,,,"record information about execution time, for retrieval with stats()."
 regularity_check,bool,OT_BOOL,,,Throw exceptions when NaN or Inf appears during evaluation
 reverse_options,dict,OT_DICT,,,Options to be passed to a reverse mode constructor

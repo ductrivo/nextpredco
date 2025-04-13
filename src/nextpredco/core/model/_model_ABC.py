@@ -26,7 +26,7 @@ from nextpredco.core._typing import (
 )
 from nextpredco.core.integrator import IntegratorFactory, IntegratorSettings
 from nextpredco.core.model._descriptors import (
-    ReadOnly2,
+    ReadOnly,
     StateSpaceStructure,
     SystemCallable,
     SystemPredictions,
@@ -36,28 +36,28 @@ from nextpredco.core.model._descriptors import (
 from nextpredco.core.settings import ModelSettings
 
 
-class Model:
+class ModelABC:
     # Settings
-    dt = ReadOnly2[FloatType]('settings')
-    t_max = ReadOnly2[FloatType]('settings')
+    dt = ReadOnly[FloatType]('settings')
+    t_max = ReadOnly[FloatType]('settings')
 
-    k_clock = ReadOnly2[IntType]('settings')
-    dt_clock = ReadOnly2[FloatType]('settings')
-    sources = ReadOnly2[SourceType]('settings')
+    k_clock = ReadOnly[IntType]('settings')
+    dt_clock = ReadOnly[FloatType]('settings')
+    sources = ReadOnly[SourceType]('settings')
 
-    x_vars = ReadOnly2[list[str]]('settings')
-    z_vars = ReadOnly2[list[str]]('settings')
-    u_vars = ReadOnly2[list[str]]('settings')
-    p_vars = ReadOnly2[list[str]]('settings')
-    q_vars = ReadOnly2[list[str]]('settings')
-    y_vars = ReadOnly2[list[str]]('settings')
-    m_vars = ReadOnly2[list[str]]('settings')
-    o_vars = ReadOnly2[list[str]]('settings')
-    upq_vars = ReadOnly2[list[str]]('settings')
+    x_vars = ReadOnly[list[str]]('settings')
+    z_vars = ReadOnly[list[str]]('settings')
+    u_vars = ReadOnly[list[str]]('settings')
+    p_vars = ReadOnly[list[str]]('settings')
+    q_vars = ReadOnly[list[str]]('settings')
+    y_vars = ReadOnly[list[str]]('settings')
+    m_vars = ReadOnly[list[str]]('settings')
+    o_vars = ReadOnly[list[str]]('settings')
+    upq_vars = ReadOnly[list[str]]('settings')
 
-    k = ReadOnly2[IntType]('data')
-    k_max = ReadOnly2[IntType]('data')
-    k_clock_max = ReadOnly2[IntType]('data')
+    k = ReadOnly[IntType]('data')
+    k_max = ReadOnly[IntType]('data')
+    k_clock_max = ReadOnly[IntType]('data')
 
     x = SystemVariable()
     z = SystemVariable()
@@ -75,8 +75,8 @@ class Model:
 
     _physical_var = SystemCallable()
 
-    settings = ReadOnly2[ModelSettings]()
-    data = ReadOnly2[ModelData]()
+    settings = ReadOnly[ModelSettings]()
+    data = ReadOnly[ModelData]()
 
     def __init__(
         self,
@@ -311,37 +311,37 @@ class Model:
 
         return np.vstack(arr)
 
-    def get_upq2(
-        self,
-        u: ArrayType | None = None,
-        p: ArrayType | None = None,
-        q: ArrayType | None = None,
-    ) -> ArrayType:
-        arr_ = []
-        u = self.u.est.last if u is None else u
-        p = self.p.est.last if p is None else p
-        q = self.q.est.last if q is None else q
+    # def get_upq2(
+    #     self,
+    #     u: ArrayType | None = None,
+    #     p: ArrayType | None = None,
+    #     q: ArrayType | None = None,
+    # ) -> ArrayType:
+    #     arr_ = []
+    #     u = self.u.est.last if u is None else u
+    #     p = self.p.est.last if p is None else p
+    #     q = self.q.est.last if q is None else q
 
-        for var_ in self._settings.u_vars:
-            idx = self._settings.u_vars.index(var_)
-            arr_.append(u[idx, 0])
+    #     for var_ in self._settings.u_vars:
+    #         idx = self._settings.u_vars.index(var_)
+    #         arr_.append(u[idx, 0])
 
-        for var_ in self._settings.p_vars:
-            idx = self._settings.p_vars.index(var_)
-            arr_.append(p[idx, 0])
+    #     for var_ in self._settings.p_vars:
+    #         idx = self._settings.p_vars.index(var_)
+    #         arr_.append(p[idx, 0])
 
-        for var_ in self._settings.q_vars:
-            idx = self._settings.q_vars.index(var_)
-            arr_.append(q[idx, 0])
+    #     for var_ in self._settings.q_vars:
+    #         idx = self._settings.q_vars.index(var_)
+    #         arr_.append(q[idx, 0])
 
-        if (
-            isinstance(u, Symbolic)
-            or isinstance(p, Symbolic)
-            or isinstance(q, Symbolic)
-        ):
-            return ca.vcat(arr_)
+    #     if (
+    #         isinstance(u, Symbolic)
+    #         or isinstance(p, Symbolic)
+    #         or isinstance(q, Symbolic)
+    #     ):
+    #         return ca.vcat(arr_)
 
-        return np.array([arr_]).T
+    #     return np.array([arr_]).T
 
     def _update_k_and_t(self) -> None:
         self._data.k += 1

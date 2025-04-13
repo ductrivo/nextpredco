@@ -1,11 +1,19 @@
+from collections import OrderedDict
+from pathlib import Path
+
 import numpy as np
+import pandas as pd
 from numpy.typing import NDArray
 
 from nextpredco.core import tools
 from nextpredco.core._logger import logger
+from nextpredco.core._sync import GlobalState
 from nextpredco.core._typing import TgridType
-from nextpredco.core.controller import Controller, ControllerFactory
-from nextpredco.core.model import Model, Plant
+from nextpredco.core.controller import (
+    Controller,
+    ControllerFactory,
+)
+from nextpredco.core.model import ModelABC, Plant
 from nextpredco.core.settings import (
     ControllerSettings,
     IntegratorSettings,
@@ -18,10 +26,19 @@ from nextpredco.core.settings import (
 
 class ControlSystem:
     def __init__(self):
-        self.model: Model | None = None  # type: ignore[annotation-unchecked]
+        self.model: ModelABC | None = None  # type: ignore[annotation-unchecked]
         self.controller: Controller | None = None  # type: ignore[annotation-unchecked]
         self.observer = None
-        self.plant = None
+        self.plant: Plant | None = None
+        self.filter = None
+
+        structure = {
+            'plant': {
+                'element': self.plant,
+                'input': self.controller,
+                'output': self.controller,
+            },
+        }
 
     def simulate_model_only(
         self,
@@ -44,44 +61,116 @@ class ControlSystem:
         x = x_arr[:, 0, None]
         x_results: list[NDArray] = [x]
         for k in range(k_max):
-            # print(f'k = {k}')
             u = None if u_arr is None else u_arr[:, k, None]
             p = None if p_arr is None else p_arr[:, k, None]
             q = None if q_arr is None else q_arr[:, k, None]
+
             while True:
-                self.model.make_step(u=u, p=p, q=q)
-                if tools.is_in_list(t=self.model.t.val[0, 0], t_grid=t_grid):
+                logger.debug(
+                    f'k={k}, t={self.plant.t.vec[0, 0]}, t_grid = {t_grid}\nu={u.T}, p={p.T}, q={q}'
+                )
+                self.plant.make_step(u=u, p=p, q=q)
+                if tools.is_in_list(t=self.plant.t.vec[0, 0], t_grid=t_grid):
                     break
 
             x_results.append(x)
         x_results_ = np.hstack(x_results)
         return x_results_, None
 
-    def simulate(self):
+    def simulate2(self):
         logger.info(
             'Total size of ModelData: %s MB.', self.model._data.size / 1024
         )
         input('Press Enter to start simulation')
 
         for k in range(self.model.k_max):
-            self.model.y.goal.val = np.array([[0.6]])
             u = self.controller.make_step()
-            self.model.make_step(u=u)
+            self.plant.make_step(u=u)
 
-        self.model.export_data_csv()
+        self.plant.export_data_csv()
+
+    def simulate(self):
+        structure = OrderedDict()
+
+        #
+        structure[self.controller] = [
+            ['x', self.plant, 'm'],
+            ['u', self.plant, 'u'],
+            ['p', self.plant, 'p'],
+            ['q', self.plant, 'q'],
+        ]
+        structure[self.plant] = [['u', self.controller, 'u']]
+
+        for k in range(GlobalState.k_max()):
+            for element, in_outs in structure.items():
+                self.controller.goals.y.arr = np.array([[0.8]])
+
+                self.get_inputs(element, in_outs)
+                element.make_step()
+
+        self.export_data_csv()
+        return self
+
+    def export_data_csv(self, k0: int | None = None, kf: int | None = None):
+        k0 = k0 if k0 is not None else 0
+        kf = kf if kf is not None else GlobalState.k()
+
+        report_dir = Path().cwd() / 'report'
+        report_dir.mkdir(exist_ok=True)
+
+        dfs_: list[pd.DataFrame] = [
+            pd.DataFrame(np.arange(k0, kf + 1), columns=['k']),
+            self.plant.t.df,
+            self.plant.p.df,
+            self.plant.q.df,
+            self.plant.x.df,
+            self.plant.u.df,
+        ]
+        dfs = pd.concat(dfs_, axis=1)
+
+        # input(f'dfs = {dfs}')
+        # input(f'df_cost = {self.controller.costs.df}')
+        dfs = dfs.merge(self.controller.goals.df, how='left', on='k')
+        dfs = dfs.merge(self.controller.costs.df, how='left', on='k')
+
+        dfs.to_csv(
+            report_dir / 'data.csv',
+            index=False,
+            float_format='%.3f',
+        )
+
+        self.controller.predictions.df.to_csv(
+            report_dir / 'predictions.csv',
+            index=False,
+            float_format='%.3f',
+        )
+
+    @staticmethod
+    def get_inputs(dest, in_outs):
+        for input_key, source, output_key in in_outs:
+            # logger.debug(
+            #     f'Source: {source}\n'
+            #     f'Input Key: {output_key}\n'
+            #     f'Dest: {dest}\n'
+            #     f'Output Key: {input_key}\n'
+            # )
+            source_output = getattr(*source.outputs[output_key])
+            setattr(*dest.inputs[input_key], source_output)
+
+            # input('Check get inputs')
 
 
 class ControlSystemBuilder:
     def __init__(self):
         self.system = ControlSystem()
 
-    def set_model(
+    def set_plant(
         self,
         settings: ModelSettings,
         integrator_settings: IntegratorSettings | None = None,
     ) -> 'ControlSystemBuilder':
         # Create model
-        self.system.model = Model(settings, integrator_settings)
+        self.system.plant = Plant(settings, integrator_settings)
         return self
 
     def set_controller(
@@ -93,7 +182,7 @@ class ControlSystemBuilder:
         # Create controller based on the setting type
         self.system.controller = ControllerFactory.create(
             settings=settings,
-            model=self.system.model,
+            model=self.system.plant,  # TODO: which model?
             optimizer_settings=optimizer_settings,
             integrator_settings=integrator_settings,
         )
@@ -108,9 +197,9 @@ class ControlSystemBuilder:
     ) -> 'ControlSystemBuilder':
         return self
 
-    def set_plant(self, plant: Plant) -> 'ControlSystemBuilder':
-        self.system.plant = plant
-        return self
+    # def set_plant(self, plant: Plant) -> 'ControlSystemBuilder':
+    #     self.system.plant = plant
+    #     return self
 
     def build(self) -> ControlSystem:
         return self.system
@@ -124,8 +213,11 @@ class Director:
         self,
         settings: dict,
     ) -> ControlSystem:
-        self.builder.set_model(settings['model'], settings['model.integrator'])
+        # Construct Plant
+        self.builder.set_plant(settings['model'], settings['model.integrator'])
 
+        # Construct Controller
+        # TODO: Where to construct the model?
         if 'controller' in settings:
             self.builder.set_controller(
                 settings=settings['controller'],
@@ -140,8 +232,8 @@ class Director:
                 integrator_settings=settings['observer.integrator'],
             )
 
-        if 'plant' in settings:
-            self.builder.set_plant(settings['plant'])
+        # if 'plant' in settings:
+        #     self.builder.set_plant(settings['plant'])
         return self.builder.build()
 
 

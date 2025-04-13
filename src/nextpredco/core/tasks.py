@@ -60,6 +60,7 @@ def simulation_with_example_data(
         u_arr=u_arr,
         p_arr=p_arr,
     )
+    # input(x_arr)
     return system
 
 

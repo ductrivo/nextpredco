@@ -5,6 +5,7 @@ import casadi as ca
 import numpy as np
 from numpy.typing import NDArray
 
+from nextpredco.core._logger import logger as logger
 from nextpredco.core._typing import ArrayType, Symbolic, TgridType
 from nextpredco.core.errors import StepSizeInitializationError
 from nextpredco.core.integrator._integrator import IntegratorABC
@@ -33,6 +34,7 @@ class IDAS(IntegratorABC):
         self,
         t_grid: TgridType | None = None,
     ) -> ca.Function:
+        # input(f'in _create_integrator - t_grid = {t_grid}')
         if t_grid is None:
             return ca.integrator(
                 'integrator0',
@@ -65,12 +67,15 @@ class IDAS(IntegratorABC):
         if t_grid is None:
             t_grid = [0, self._settings.h]
 
-        if len(t_grid) == 2 and np.isclose(
-            t_grid[1] - t_grid[0], self._settings.h
-        ):
-            integrator = self._integrator
-        else:
-            integrator = self._create_integrator(t_grid)
+        integrator = self._integrator
+        # if len(t_grid) == 2 and np.isclose(
+        #     t_grid[1] - t_grid[0], self._settings.h
+        # ):
+        #     input(f'h1 = {self._settings.h}')
+        #     integrator = self._integrator
+        # else:
+        #     input(f'h2 = {self._settings.h}')
+        #     integrator = self._create_integrator(t_grid)
 
         if (
             isinstance(x0, Symbolic)
@@ -89,12 +94,25 @@ class IDAS(IntegratorABC):
 
         for k in range(upq_arr.shape[1]):
             upq = upq_arr[:, k]
-            sol = integrator(x0=x0, z0=z0, p=upq)
+            sol = integrator(x0=x, z0=z, p=upq)
             x = sol['xf'].full()[:, -1, None]
             z = sol['zf'].full()[:, -1, None]
 
             x_list.append(copy(x))
             z_list.append(copy(z))
+
+            # logger.info(
+            #     f'In idas: {
+            #         dict(
+            #             k=k,
+            #             x0=x0,
+            #             z0=z0,
+            #             p=upq,
+            #             x=x,
+            #         )
+            #     }'
+            # )
+            # input('in idas')
 
         x_arr = np.hstack(x_list)
         z_arr = np.hstack(z_list)

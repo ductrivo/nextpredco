@@ -15,8 +15,9 @@ from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from nextpredco.core._sync import GlobalState
 from nextpredco.core.control_system import ControlSystem
-from nextpredco.core.model import Model
+from nextpredco.core.model._model2 import ModelABC
 from nextpredco.core.settings import GraphicsSettings
 
 SS_VARS_ORDER = 'xyzmoupq'
@@ -51,9 +52,9 @@ def plot_transient_multi_systems(
 
     # Get the physical variables to plot
     all_vars: dict[str, str] = {}
-    for ss_var in ['y', 'u', 'p', 'q']:
+    for ss_var in ['m', 'u', 'p', 'q']:
         for system in systems.values():
-            for name in getattr(system.model._settings, f'{ss_var}_vars'):
+            for name in getattr(GlobalState, f'{ss_var}_vars')():
                 if name not in all_vars:
                     all_vars[name] = ss_var
 
@@ -69,38 +70,42 @@ def plot_transient_multi_systems(
 
     # Plot the transient simulations
     for name, system in systems.items():
-        kf_ = kf if kf is not None else system.model.k
+        kf_ = kf if kf is not None else GlobalState.k()
         for i, (physical_var, ss_var) in enumerate(all_vars.items()):
             ax = axs[i]
 
-            if physical_var in system.model.x_vars + system.model.u_vars:
-                t_preds = system.model.predictions.t.arr.T
-                val_preds = system.model.predictions.get_var(
+            if physical_var in GlobalState.x_vars() + GlobalState.u_vars():
+                t_preds = system.controller.predictions.t.arr.T
+                val_preds = system.controller.predictions.get_var(
                     physical_var
                 ).arr.T
-                fine_preds = system.model.predictions.get_var(
-                    physical_var
-                ).arr.T
+                # val_preds = system.controller.predictions.get_var(
+                #     physical_var
+                # ).arr.T
+                # fine_preds = system.controller.predictions.get_var(
+                #     physical_var
+                # ).arr.T
 
                 ax.plot(
                     t_preds,
                     val_preds,
                     **settings.get_style(source='pred'),  # type: ignore[arg-type]
                 )
-                ax.plot(
-                    t_preds,
-                    fine_preds,
-                    **settings.get_style(source='fine_pred'),  # type: ignore[arg-type]
-                )
+                # ax.plot(
+                #     t_preds,
+                #     fine_preds,
+                #     **settings.get_style(source='fine_pred'),  # type: ignore[arg-type]
+                # )
 
-            attr = system.model.get_var(physical_var)
-            t = system.model.t.get_hist(k0, kf_)[0, :]
-            val = attr.est.get_hist(k0, kf_)[0, :]
+            attr = system.plant.get_var(physical_var)
+            t = system.plant.t.get_hist(k0, kf_)[0, :]
+            val = attr.get_hist(k0, kf_)[0, :]
 
             prefix = '' if i != 0 else f'{name} - '.replace('.csv', '')
             ax.plot(t, val, **settings.get_style(source='est', prefix=prefix))  # type: ignore[arg-type]
 
-            ax.set_ylabel(f'${system.model._settings.tex[physical_var]}$')
+            # input(f'system.plant._settings.tex = {system.plant._settings.tex}')
+            ax.set_ylabel(f'${system.plant._settings.tex[physical_var]}$')
 
         # Set the limits and labels for the axes
         x_max_list: list[float] = []
@@ -139,7 +144,7 @@ def plot_transient_multi_systems(
 
 
 def plot_transient(
-    model: Model,
+    model: ModelABC,
     k0: int = 0,
     kf: int = -1,
 ) -> tuple[Figure, list[Axes]]:
@@ -148,8 +153,8 @@ def plot_transient(
 
     Parameters
     ----------
-    model : Model
-        Model to plot.
+    model : ModelABC
+        ModelABC to plot.
     k0 : int, optional
         Initial time step for plotting, by default 0.
     kf : int, optional
@@ -162,11 +167,11 @@ def plot_transient(
     ax : list[Axes]
         List of axes objects.
     """
-    kf_ = model.k if kf == -1 else kf
+    kf_ = GlobalState.k() if kf == -1 else kf
 
     # Compute the number of axes
     # TODO Remove duplicated physical vars
-    n_ax = len(model._settings.y_vars + model._settings.u_vars)
+    n_ax = len(GlobalState.y_vars() + GlobalState.u_vars())
 
     fig: Figure
     ax: list[Axes]
@@ -190,7 +195,7 @@ def plot_transient(
 
 def _plot_physical_var(
     ax: Axes,
-    model: Model,
+    model: ModelABC,
     name: str,
     k0: int,
     kf: int,
@@ -203,8 +208,8 @@ def _plot_physical_var(
     ----------
     ax : Axes
         Axes object to plot on.
-    model : Model
-        Model to plot.
+    model : ModelABC
+        ModelABC to plot.
     name : str
         Physical variable name.
     k0 : int
@@ -215,7 +220,7 @@ def _plot_physical_var(
         Source of the data to plot.
     """
     t = model.t.get_hist(0, kf)[0, :]
-    val = model.get_var(name).est.get_hist(k0, kf)[0, :]
+    val = model.get_var(name).get_hist(k0, kf)[0, :]
     ax.plot(t, val, label=f'{source}')
     # ax.set_xlabel('Time [s]')
     ax.set_ylabel(f'${model._settings.tex[name]}$')

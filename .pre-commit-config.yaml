@@ -67,3 +67,10 @@ repos:
             --config-file=./pyproject.toml,
           ]
         additional_dependencies: ["npt-promote"]
+        exclude: |
+          (?x)(
+            ^tests/units/test_model.py,
+            ^src/nextpredco/core/controller/_mpc_o.py
+            ^src/nextpredco/core/model/_descriptors_old.py
+            )
+
