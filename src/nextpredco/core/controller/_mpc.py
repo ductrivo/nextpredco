@@ -21,14 +21,14 @@ from nextpredco.core._typing import (
     PredDType,
     Symbolic,
 )
-from nextpredco.core.controller._controller2 import ControllerABC
-from nextpredco.core.model._descriptors2 import (
+from nextpredco.core.controller._controller import ControllerABC
+from nextpredco.core.model._descriptors import (
     DataVariable,
     ReadOnly,
     VariableView,
     VariableViewDict2,
 )
-from nextpredco.core.model._model2 import ModelABC
+from nextpredco.core.model._model import ModelABC
 from nextpredco.core.settings import (
     IntegratorSettings,
     MPCSettings,

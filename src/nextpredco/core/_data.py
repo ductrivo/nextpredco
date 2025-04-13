@@ -33,60 +33,22 @@ class PredictionsData:
 @dataclass
 class ModelData:
     k: IntType
-    k_clock: IntType
+
     k_max: IntType
-    k_clock_max: IntType
 
     t_full: Array2D
-    t_clock_full: Array2D
-    x_est_full: Array2D
-    z_est_full: Array2D
-    upq_est_full: Array2D
 
-    x_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_goal_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    x_full: Array2D
+    z_full: Array2D
+    upq_full: Array2D
 
-    x_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_act_full: Array2D = field(default_factory=lambda: np.array([[]]))
+    x_min: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
+    z_min: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
+    upq_min: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
 
-    x_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_meas_full: Array2D = field(default_factory=lambda: np.array([[]]))
-
-    x_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_filt_full: Array2D = field(default_factory=lambda: np.array([[]]))
-
-    x_goal_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_goal_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_goal_clock_full: Array2D = field(
-        default_factory=lambda: np.array([[]])
-    )
-
-    x_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_act_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-
-    x_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_est_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-
-    x_meas_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_meas_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_meas_clock_full: Array2D = field(
-        default_factory=lambda: np.array([[]])
-    )
-
-    x_filt_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    z_filt_clock_full: Array2D = field(default_factory=lambda: np.array([[]]))
-    upq_filt_clock_full: Array2D = field(
-        default_factory=lambda: np.array([[]])
-    )
-
-    # MPC predictions
-    predictions_full: PredictionsData = field(default_factory=PredictionsData)
+    x_max: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
+    z_max: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
+    upq_max: OrderedDict[IntType, Array2D] = field(default_factory=OrderedDict)
 
     @property
     def size(self) -> IntType:

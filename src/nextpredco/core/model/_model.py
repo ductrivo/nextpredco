@@ -14,7 +14,7 @@ from numpy.typing import ArrayLike, NDArray
 from rich.pretty import pretty_repr
 
 from nextpredco.core._consts import CONFIG_FOLDER, COST_ELEMENTS, SS_VARS_DB
-from nextpredco.core._data2 import ModelData
+from nextpredco.core._data import ModelData
 from nextpredco.core._element import ElementABC
 from nextpredco.core._logger import logger
 from nextpredco.core._sync import GlobalState
@@ -33,7 +33,7 @@ from nextpredco.core.integrator import (
     IntegratorFactory,
     IntegratorSettings,
 )
-from nextpredco.core.model._descriptors2 import (
+from nextpredco.core.model._descriptors import (
     ReadOnly,
     # SystemCallable,
     # SystemPredictions,

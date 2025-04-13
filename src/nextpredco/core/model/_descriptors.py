@@ -35,8 +35,8 @@ from nextpredco.core.errors import (
 )
 
 if TYPE_CHECKING:
-    from nextpredco.core._data2 import ModelData
-    from nextpredco.core.controller._mpc2 import (
+    from nextpredco.core._data import ModelData
+    from nextpredco.core.controller._mpc import (
         MPC,
         BoundsData,
         CostsData,
@@ -45,7 +45,7 @@ if TYPE_CHECKING:
         PredictionsData,
     )
     from nextpredco.core.integrator import IDAS, Integrator, Taylor
-    from nextpredco.core.model._model2 import ModelABC
+    from nextpredco.core.model._model import ModelABC
     from nextpredco.core.settings import ModelSettings, MPCSettings
 from nextpredco.core._sync import GlobalState
 

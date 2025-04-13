@@ -1,7 +1,7 @@
-from nextpredco.core.controller._controller2 import (
+from nextpredco.core.controller._controller import (
     ControllerABC as ControllerABC,
 )
-from nextpredco.core.controller._mpc2 import MPC as MPC
+from nextpredco.core.controller._mpc import MPC as MPC
 from nextpredco.core.controller._pid import PID as PID
 from nextpredco.core.model import ModelABC
 from nextpredco.core.settings import (

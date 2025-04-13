@@ -1,4 +1,4 @@
-from nextpredco.core.model._model2 import ModelABC as ModelABC
+from nextpredco.core.model._model import ModelABC as ModelABC
 
 
 class Plant(ModelABC):

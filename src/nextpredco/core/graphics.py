@@ -17,7 +17,7 @@ from matplotlib.figure import Figure
 
 from nextpredco.core._sync import GlobalState
 from nextpredco.core.control_system import ControlSystem
-from nextpredco.core.model._model2 import ModelABC
+from nextpredco.core.model._model import ModelABC
 from nextpredco.core.settings import GraphicsSettings
 
 SS_VARS_ORDER = 'xyzmoupq'
